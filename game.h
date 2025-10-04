@@ -7,6 +7,7 @@
 #include "Enemy.h"
 #include "Cookie.h"
 #include "Platform.h"
+#include "TextManager.h"
 
 class Game {
 private:
@@ -19,6 +20,9 @@ private:
     std::vector<Cookie*> cookies;
     std::vector<Enemy*> enemies;
     int cookieCount;
+    int totalCookiesCollected;
+    
+    TextManager* textManager;
     
     bool hasJumpedThisPress;
     
@@ -29,6 +33,8 @@ private:
     void checkCookieCollisions();
     void checkEnemyCollisions();
     bool isPlayerOnGround();
+    void renderHearts();
+    void renderGameOver();
     
 public:
     Game();

@@ -12,6 +12,17 @@ public:
     bool isGliding;
     float glideTime;
     
+    // Energy/Health system (Sugar Rush)
+    float energy;
+    float maxEnergy;
+    int hearts;
+    int maxHearts;
+    bool isDead;
+    bool isInvincible;
+    float invincibilityTimer;
+    
+    bool isSluggish();
+    
     Player(float startX, float startY);
     
     void jump();
@@ -22,6 +33,10 @@ public:
     void stopMoving();
     void update();
     void render(SDL_Renderer* renderer);
+    
+    void restoreEnergy(float amount);
+    void loseHeart();
+    void reset(float startX, float startY);
     
     SDL_Rect getRect();
 };

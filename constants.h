@@ -15,6 +15,18 @@ const float MAX_FALL_SPEED = 15.0f;
 // Gliding settings
 const float MAX_GLIDE_TIME = 2.0f;
 
+// Energy/Health system (Sugar Rush)
+const float MAX_ENERGY = 100.0f;
+const float ENERGY_DRAIN_RATE = 5.0f;
+const int STARTING_HEARTS = 3;
+const int MAX_HEARTS = 5;
+const float COOKIE_ENERGY_RESTORE = 25.0f;
+const float INVINCIBILITY_TIME = 1.0f;
+
+// Sluggish state (low energy penalties)
+const float SLUGGISH_MOVE_SPEED = 3.5f;
+const float SLUGGISH_JUMP_FORCE = -10.0f;
+
 // Game settings
 const int FPS = 60;
 const int FRAME_DELAY = 1000 / FPS;
