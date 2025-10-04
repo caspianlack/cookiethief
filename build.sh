@@ -1,0 +1,1 @@
+g++ -o CookieThief.exe main.cpp game.cpp player.cpp enemy.cpp cookie.cpp -IC:/SDL2/include -LC:/SDL2/lib -lmingw32 -lSDL2main -lSDL2
