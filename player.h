@@ -32,8 +32,9 @@ public:
     void moveRight();
     void stopMoving();
     void update();
-    void render(SDL_Renderer* renderer);
+    void render(SDL_Renderer* renderer, bool showBars = true);
     
+    void setPosition(float newX, float newY);
     void restoreEnergy(float amount);
     void loseHeart();
     void reset(float startX, float startY);

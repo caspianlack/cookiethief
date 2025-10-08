@@ -109,24 +109,29 @@ void Player::loseHeart() {
     }
 }
 
+// FULL RESET... want to keep some data persistent when moving between levels... like hearts
 void Player::reset(float startX, float startY) {
     x = startX;
     y = startY;
     velocityX = 0;
     velocityY = 0;
+    
+    hearts = STARTING_HEARTS;
+    maxHearts = STARTING_HEARTS;
+    energy = MAX_ENERGY;
+    maxEnergy = MAX_ENERGY;
+    
     onGround = false;
     isGliding = false;
     glideTime = MAX_GLIDE_TIME;
-    energy = MAX_ENERGY;
-    hearts = STARTING_HEARTS;
     isDead = false;
     isInvincible = false;
-    invincibilityTimer = 0.0f;
+    invincibilityTimer = 0;
 }
 
 void Player::update() {
     if (isDead) {
-        return; // Don't update if dead
+        return;
     }
     
     printf("  Player::update() START - velocityY: %f, isGliding: %d, onGround: %d\n", 
@@ -185,21 +190,11 @@ void Player::update() {
     x += velocityX;
     y += velocityY;
     
-    if (x < 0) x = 0;
-    if (x + width > SCREEN_WIDTH) x = SCREEN_WIDTH - width;
-    
-    if (y + height > SCREEN_HEIGHT) {
-        y = SCREEN_HEIGHT - height;
-        velocityY = 0;
-        onGround = true;
-        isGliding = false;
-    }
-    
-    printf("  Player::update() END - velocityY: %f, energy: %.1f, hearts: %d\n", 
-           velocityY, energy, hearts);
+    printf("  Player::update() END - velocityY: %f, energy: %.1f, hearts: %d, y: %.1f\n", 
+           velocityY, energy, hearts, y);
 }
 
-void Player::render(SDL_Renderer* renderer) {
+void Player::render(SDL_Renderer* renderer, bool showBars) {
     if (isDead) {
         return; // Don't render if dead
     }
@@ -229,6 +224,11 @@ void Player::render(SDL_Renderer* renderer) {
     SDL_SetRenderDrawColor(renderer, 139, 69, 19, 255);
     SDL_Rect face = {(int)x + 5, (int)y + 5, 22, 15};
     SDL_RenderFillRect(renderer, &face);
+
+    // Only show bars if requested (hide in lobby)
+    if (!showBars) {
+        return;
+    }
 
     // Draw glide bar above player
     int barWidth = 30;
@@ -264,6 +264,15 @@ void Player::render(SDL_Renderer* renderer) {
     }
     SDL_Rect energyMeter = {barX, energyBarY, (int)(barWidth * energyPercent), barHeight};
     SDL_RenderFillRect(renderer, &energyMeter);
+}
+
+void Player::setPosition(float newX, float newY) {
+    x = newX;
+    y = newY;
+    velocityX = 0;
+    velocityY = 0;
+    isGliding = false;
+    glideTime = MAX_GLIDE_TIME;
 }
 
 SDL_Rect Player::getRect() {
