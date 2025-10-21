@@ -21,6 +21,10 @@ Player::Player(float startX, float startY) {
     isDead = false;
     isInvincible = false;
     invincibilityTimer = 0.0f;
+    
+    // Initialize stomp variables
+    isStomping = false;
+    stompBounce = -10.0f;
 }
 
 void Player::jump() {
@@ -28,22 +32,22 @@ void Player::jump() {
         // Weaker jump when sluggish (no energy)
         if (isSluggish()) {
             velocityY = SLUGGISH_JUMP_FORCE;
-            printf("    Player::jump() called - SLUGGISH jump, velocityY set to %f\n", velocityY);
+            // printf("    Player::jump() called - SLUGGISH jump, velocityY set to %f\n", velocityY);
         } else {
             velocityY = JUMP_FORCE;
-            printf("    Player::jump() called - velocityY set to %f\n", velocityY);
+            // printf("    Player::jump() called - velocityY set to %f\n", velocityY);
         }
         onGround = false;
         isGliding = false;
     } else {
-        printf("    Player::jump() BLOCKED - not on ground\n");
+        // printf("    Player::jump() BLOCKED - not on ground\n");
     }
 }
 
 void Player::startGliding() {
     // Can't glide when sluggish (no energy)
     if (isSluggish()) {
-        printf("    Can't glide - no energy! Need cookies!\n");
+        // printf("    Can't glide - no energy! Need cookies!\n");
         return;
     }
     
@@ -84,7 +88,7 @@ void Player::restoreEnergy(float amount) {
     if (energy > maxEnergy) {
         energy = maxEnergy;
     }
-    printf("Energy restored! Current energy: %.1f\n", energy);
+    // printf("Energy restored! Current energy: %.1f\n", energy);
 }
 
 bool Player::isSluggish() {
@@ -103,9 +107,9 @@ void Player::loseHeart() {
     if (hearts <= 0) {
         hearts = 0;
         isDead = true;
-        printf("Player died! Game Over\n");
+        // printf("Player died! Game Over\n");
     } else {
-        printf("Hit by enemy! Hearts remaining: %d (Invincible for %.1fs)\n", hearts, INVINCIBILITY_TIME);
+        // printf("Hit by enemy! Hearts remaining: %d (Invincible for %.1fs)\n", hearts, INVINCIBILITY_TIME);
     }
 }
 
@@ -134,36 +138,40 @@ void Player::update() {
         return;
     }
     
-    printf("  Player::update() START - velocityY: %f, isGliding: %d, onGround: %d\n", 
-           velocityY, isGliding, onGround);
-    
     // Update invincibility timer
     if (isInvincible) {
         invincibilityTimer -= 1.0f / FPS;
         if (invincibilityTimer <= 0) {
             isInvincible = false;
             invincibilityTimer = 0;
-            printf("Invincibility ended\n");
         }
     }
     
-    // Drain energy over time (sugar crash)
-    energy -= ENERGY_DRAIN_RATE / FPS;
-    if (energy < 0) {
-        energy = 0;
+    // ONLY drain energy when gliding (not just existing!)
+    if (isGliding && glideTime > 0 && !onGround) {
+        energy -= ENERGY_DRAIN_RATE / FPS;
+        if (energy < 0) {
+            energy = 0;
+        }
     }
     
-    // Stop gliding if energy runs out mid-glide
+    // Stop gliding if energy runs out
     if (isSluggish() && isGliding) {
         isGliding = false;
         printf("Sugar crash! Can't glide anymore - need cookies!\n");
+    }
+    
+    // Stomp detection
+    if (velocityY > 0 && !onGround) {
+        isStomping = true;
+    } else {
+        isStomping = false;
     }
     
     // Gliding: constant fall speed
     if (isGliding && glideTime > 0 && !onGround) {
         velocityY = GLIDE_FALL_SPEED;
         glideTime -= 1.0f / FPS;
-        printf("    GLIDING - velocityY forced to %f\n", GLIDE_FALL_SPEED);
         
         if (glideTime <= 0) {
             glideTime = 0;
@@ -189,9 +197,6 @@ void Player::update() {
     
     x += velocityX;
     y += velocityY;
-    
-    printf("  Player::update() END - velocityY: %f, energy: %.1f, hearts: %d, y: %.1f\n", 
-           velocityY, energy, hearts, y);
 }
 
 void Player::render(SDL_Renderer* renderer, bool showBars) {
@@ -275,6 +280,10 @@ void Player::setPosition(float newX, float newY) {
     glideTime = MAX_GLIDE_TIME;
 }
 
-SDL_Rect Player::getRect() {
+SDL_Rect Player::getRect() const {
     return {(int)x, (int)y, (int)width, (int)height};
+}
+
+SDL_Rect Player::getFeetRect() const {
+    return {(int)x, (int)(y + height * 0.66f), (int)width, (int)(height * 0.34f)};
 }

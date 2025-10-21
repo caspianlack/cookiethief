@@ -21,6 +21,10 @@ public:
     bool isInvincible;
     float invincibilityTimer;
     
+    // Stomp mechanics
+    bool isStomping;
+    float stompBounce;
+    
     bool isSluggish();
     
     Player(float startX, float startY);
@@ -39,7 +43,8 @@ public:
     void loseHeart();
     void reset(float startX, float startY);
     
-    SDL_Rect getRect();
+    SDL_Rect getRect() const;
+    SDL_Rect getFeetRect() const;
 };
 
 #endif

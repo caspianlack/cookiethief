@@ -38,6 +38,63 @@ const float INVINCIBILITY_TIME = 1.0f;
 const float SLUGGISH_MOVE_SPEED = 3.5f;
 const float SLUGGISH_JUMP_FORCE = -10.0f;
 
+// Enemy dimensions
+const float ENEMY_WIDTH = 32.0f;
+const float ENEMY_HEIGHT = 48.0f;
+
+// Enemy: Patrol (Frying Pan)
+const float PATROL_SPEED = 2.0f;
+const float PATROL_PAUSE_MIN = 1.0f;
+const float PATROL_PAUSE_MAX = 3.0f;
+const int PATROL_PAUSE_CHANCE = 100;  // 1/100 chance per frame
+
+// Enemy: Jumper (Rolling Pin)
+const float JUMPER_SPEED = 3.5f;
+const float JUMPER_JUMP_FORCE = -11.0f;
+const float JUMPER_JUMP_COOLDOWN = 1.5f;
+const float JUMPER_CHASE_COOLDOWN = 2.0f;
+const float JUMPER_CHASE_RANGE = 400.0f;
+const float JUMPER_AGGRESSIVE_RANGE = 200.0f;
+const float JUMPER_AGGRESSIVE_SPEED_MULT = 1.3f;
+const float JUMPER_AGGRESSIVE_JUMP_FORCE = -12.0f;
+const float JUMPER_AGGRESSIVE_JUMP_COOLDOWN = 0.8f;
+
+// Enemy: Shooter (Wooden Spoon)
+const float SHOOTER_SPEED = 1.5f;
+const float SHOOTER_SHOOT_INTERVAL = 3.0f;
+const float SHOOTER_AIM_TIME = 0.8f;
+const float SHOOTER_INITIAL_COOLDOWN = 2.0f;
+const float SHOOTER_MIN_SHOOT_INTERVAL = 1.5f;  // With difficulty scaling
+
+// Projectile settings
+const float PROJECTILE_SPEED = 6.0f;
+const float PROJECTILE_WIDTH = 12.0f;
+const float PROJECTILE_HEIGHT = 12.0f;
+const float PROJECTILE_GRAVITY = 0.2f;
+const float PROJECTILE_PREDICTION_TIME = 0.5f;  // Predictive aiming
+
+// Enemy AI
+const float ENEMY_EDGE_CHECK_DISTANCE = 10.0f;
+const float ENEMY_PLATFORM_MARGIN = 5.0f;
+const float ENEMY_ALERT_INCREASE_RATE = 0.02f;
+const float ENEMY_ALERT_DECREASE_RATE = 0.01f;
+const float ENEMY_ALERT_RANGE = 300.0f;
+
+const float ENEMY_ACTIVATION_RANGE = 400.0f;
+const float ENEMY_DEACTIVATION_RANGE = 600.0f;
+
+
+// Difficulty scaling per floor
+const float ENEMY_SPEED_SCALE_PER_FLOOR = 0.1f;
+const float SHOOTER_COOLDOWN_REDUCE_PER_FLOOR = 0.2f;
+const float JUMPER_COOLDOWN_REDUCE_PER_FLOOR = 0.1f;
+
+const float JUMPER_CHASE_TIME_MIN = 3.0f;   // Minimum chase duration
+const float JUMPER_CHASE_TIME_MAX = 5.0f;   // Maximum chase duration
+const float JUMPER_RETREAT_TIME_MIN = 1.5f; // How long to retreat after hit
+const float JUMPER_RETREAT_TIME_MAX = 2.5f;
+const float JUMPER_LOST_PLAYER_TIME = 2.0f; // Time before giving up when player is far
+
 // Game settings
 const int FPS = 60;
 const int FRAME_DELAY = 1000 / FPS;

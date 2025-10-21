@@ -86,16 +86,16 @@ void Game::loadLobby() {
     // start door
     startRunDoor = {350, 380, 100, 90};
     // TODO: move persistant stats into a seperate stats page
-    printf("=== LOBBY LOADED ===\n");
-    printf("Persistent Stats:\n");
-    printf("  Total Cookies: %d\n", persistentStats.totalCookies);
-    printf("  Total Deaths: %d\n", persistentStats.totalDeaths);
-    printf("  Highest Floor: %d\n", persistentStats.highestFloorReached);
-    printf("  Total Playthroughs: %d\n", persistentStats.totalPlaythroughs);
+    // printf("=== LOBBY LOADED ===\n");
+    // printf("Persistent Stats:\n");
+    // printf("  Total Cookies: %d\n", persistentStats.totalCookies);
+    // printf("  Total Deaths: %d\n", persistentStats.totalDeaths);
+    // printf("  Highest Floor: %d\n", persistentStats.highestFloorReached);
+    // printf("  Total Playthroughs: %d\n", persistentStats.totalPlaythroughs);
 }
 
 void Game::startNewRun() {
-    printf("\n=== STARTING NEW RUN ===\n");
+    // printf("\n=== STARTING NEW RUN ===\n");
     currentRun->startNewRun();
     persistentStats.totalPlaythroughs++;
     
@@ -113,7 +113,7 @@ void Game::startNewRun() {
 }
 
 void Game::generateDownwellSegment() {
-    printf("\n=== GENERATING DOWNWELL SEGMENT %d ===\n", currentSegment + 1);
+    // printf("\n=== GENERATING DOWNWELL SEGMENT %d ===\n", currentSegment + 1);
     cleanCurrentLevel();
     
     currentRun->advanceFloor();
@@ -357,6 +357,11 @@ void Game::cleanCurrentLevel() {
         delete enemy;
     }
     enemies.clear();
+
+    for (auto* proj : projectiles) {
+        delete proj;
+    }
+    projectiles.clear();
 }
 
 SDL_Rect Game::worldToScreen(SDL_Rect worldRect) {
@@ -551,7 +556,7 @@ void Game::update() {
     } else if (currentState == STATE_BOMB_JACK) {
         updateBombJack();
     }
-    
+
     if (player->onGround) {
         hasJumpedThisPress = false;
     }
@@ -560,6 +565,11 @@ void Game::update() {
 void Game::updateLobby() {
     player->update();
     checkPlatformCollisions();
+    
+    // Infinite glide and energy in lobby (just keep maxing)
+    player->glideTime = MAX_GLIDE_TIME;
+    player->energy = MAX_ENERGY;
+
     
     // near start door in lobby
     SDL_Rect playerRect = player->getRect();
@@ -573,7 +583,7 @@ void Game::updateBombJack() {
     checkEnemyCollisions();
     
     for (auto* enemy : enemies) {
-        enemy->update(*player);
+        enemy->update(*player, platforms, &projectiles);
     }
     
     // bomb jack win condition
@@ -769,12 +779,51 @@ void Game::checkCookieCollisions() {
 }
 
 void Game::checkEnemyCollisions() {
-    for (auto* enemy : enemies) {
+    auto it = enemies.begin();
+    while (it != enemies.end()) {
+        Enemy* enemy = *it;
+        
         if (enemy->checkCollision(*player)) {
-            if (!player->isInvincible) {
-                player->loseHeart();
+            SDL_Rect playerRect = player->getRect();
+            SDL_Rect enemyRect = enemy->getRect();
+            
+            // Calculate if player is coming from above
+            // Player's bottom vs enemy's top
+            int playerBottom = playerRect.y + playerRect.h;
+            int enemyTop = enemyRect.y;
+            int enemyMidpoint = enemyRect.y + enemyRect.h / 2;
+            
+            // STOMP CHECK: Player is above enemy midpoint AND falling
+            bool isAboveEnemy = playerBottom < enemyMidpoint;
+            bool isFalling = player->velocityY > 0;
+            
+            if (isAboveEnemy && isFalling) {
+                // printf("💥 STOMPED %s! +5 cookies, energy restored!\n", 
+                //        enemy->type == ENEMY_PATROL ? "FRYING PAN" :
+                //        enemy->type == ENEMY_JUMPER ? "ROLLING PIN" : "WOODEN SPOON");
+                
+                // Bounce player up (stronger bounce if falling faster)
+                float bounceStrength = -8.0f - (player->velocityY * 0.3f);
+                if (bounceStrength < -15.0f) bounceStrength = -15.0f; // max
+                player->velocityY = bounceStrength;
+                player->onGround = false;
+                
+                currentRun->getStats().cookiesThisRun += 5;
+                persistentStats.totalCookies += 5;
+                player->restoreEnergy(30.0f);
+                
+                // Delete enemy
+                delete enemy;
+                it = enemies.erase(it);
+                continue;
+            } else {
+                // Side or bottom collision = take damage
+                if (!player->isInvincible) {
+                    player->loseHeart();
+                }
             }
         }
+        ++it;
     }
 }
 
@@ -854,6 +903,28 @@ void Game::renderRunIntro() {
                            SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 + 30, white, true);
 }
 
+void Game::checkProjectileCollisions() {
+    for (auto* proj : projectiles) {
+        if (proj->checkCollision(*player)) {
+            if (!player->isInvincible) {
+                player->loseHeart();
+                proj->active = false;
+            }
+        }
+    }
+}
+
+void Game::cleanProjectiles() {
+    auto it = projectiles.begin();
+    while (it != projectiles.end()) {
+        if (!(*it)->active) {
+            delete *it;
+            it = projectiles.erase(it);
+        } else {
+            ++it;
+        }
+    }
+}
 
 void Game::updateDownwell() {
     float oldY = player->y;
@@ -878,14 +949,26 @@ void Game::updateDownwell() {
     
     // Update enemies
     for (auto* enemy : enemies) {
-        enemy->update(*player);
+        enemy->update(*player, platforms, &projectiles);
     }
+
+    for (auto* proj : projectiles) {
+        proj->update();
+    }
+
+    checkProjectileCollisions();
+    cleanProjectiles();
     
-    // Check if reached bottom
-    // TODO : fix buffer for bottom sprite when added
-    // platforms, enemies and cookies shouldnt spawn x from bottom
-    if (player->y >= worldHeight - 200) {
-        completeDownwellSegment();
+    if (player->y >= worldHeight - 40) { // 100 level
+        float holeCenterX = PIT_LEFT + PIT_WIDTH / 2;
+        float holeWidth = 120.0f;
+        
+        // Check if player is within the hole horizontally 
+        if (player->x + player->width / 2 > holeCenterX - holeWidth / 2 &&
+            player->x + player->width / 2 < holeCenterX + holeWidth / 2) {
+            printf("Player went through the exit hole!\n");
+            completeDownwellSegment();
+        }
     }
     
     // distance tracker (down)
@@ -1001,13 +1084,16 @@ void Game::renderDownwell() {
         SDL_Rect screenRect = worldToScreen(worldRect);
         
         if (screenRect.y + screenRect.h >= 0 && screenRect.y <= SCREEN_HEIGHT) {
-            SDL_SetRenderDrawColor(renderer, 200, 200, 200, 255);
-            SDL_RenderFillRect(renderer, &screenRect);
-            
-            SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
-            SDL_Rect hat = {screenRect.x + 5, screenRect.y - 10, 22, 10};
-            SDL_RenderFillRect(renderer, &hat);
+            // transform enemy position for camera
+            float savedY = enemy->y;
+            enemy->y = worldToScreenY(enemy->y);
+            enemy->render(renderer);
+            enemy->y = savedY;
         }
+    }
+
+    for (auto* proj : projectiles) {
+        proj->render(renderer, cameraY);
     }
     
     // side doors
@@ -1176,6 +1262,10 @@ void Game::renderBombJack() {
     
     for (auto* enemy : enemies) {
         enemy->render(renderer);
+    }
+
+    for (auto* proj : projectiles) {
+        proj->render(renderer);
     }
     
     player->render(renderer, true);

@@ -11,6 +11,7 @@
 #include "levelmanager.h"
 #include "gamerun.h"
 #include "downwellgenerator.h"
+#include "projectile.h"
 
 struct SideDoor {
     SDL_Rect rect;
@@ -75,10 +76,12 @@ private:
     // persistant levels between side and main level (bomb jack and downwell)
     std::vector<Platform> savedPlatforms;
     std::vector<Cookie*> savedCookies;
-    std::vector<Enemy*> savedEnemies;
     std::vector<Collider> savedAlcoveCeilings;
     std::vector<SideDoor> savedSideDoors;
     float savedWorldHeight;
+
+    std::vector<Enemy*> savedEnemies;
+    std::vector<Projectile*> projectiles;
     
     float transitionTimer;
     
@@ -129,6 +132,9 @@ private:
     void applyUpgradesToPlayer();
     void renderDownwellWalls();
     void renderSideStats();
+
+    void checkProjectileCollisions();
+    void cleanProjectiles();
     
     // Helper functions
     void cleanCurrentLevel();
