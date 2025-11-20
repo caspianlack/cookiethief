@@ -13,7 +13,8 @@
 #include "downwellgenerator.h"
 #include "projectile.h"
 
-struct SideDoor {
+struct SideDoor
+{
     SDL_Rect rect;
     RoomType type;
     bool used;
@@ -21,74 +22,77 @@ struct SideDoor {
     bool onLeftWall;
 };
 
-struct Collider {
+struct Collider
+{
     SDL_Rect rect;
     bool isWorldSpace;
 };
 
-class Game {
+class Game
+{
 private:
-    SDL_Window* window;
-    SDL_Renderer* renderer;
+    SDL_Window *window;
+    SDL_Renderer *renderer;
     bool running;
-    
-    Player* player;
+
+    Player *player;
     std::vector<Platform> platforms;
-    std::vector<Cookie*> cookies;
-    std::vector<Enemy*> enemies;
+    std::vector<Cookie *> cookies;
+    std::vector<Enemy *> enemies;
     std::vector<SideDoor> sideDoors;
     std::vector<Collider> alcoveCeilings;
-    
-    TextManager* textManager;
-    LevelManager* levelManager;
-    DownwellGenerator* downwellGenerator;
-    GameRun* currentRun;
+
+    TextManager *textManager;
+    LevelManager *levelManager;
+    DownwellGenerator *downwellGenerator;
+    GameRun *currentRun;
     PersistentStats persistentStats;
-    
+
     GameState currentState;
     GameState previousState; // returning from side rooms
-    
+
     // Camera for Downwell
     float cameraY;
     float worldHeight;
-    
+
     // Lobby
     SDL_Rect startRunDoor;
     bool playerNearStartDoor;
-    
+
     // Downwell tracking
     int currentSegment;
     float playerReturnX;
     float playerReturnY;
     bool shopIsFromSideRoom;
-    
+    float maxDepthReached;
+
     // Bomb Jack
-    LevelData* currentBombJackLevel;
+    LevelData *currentBombJackLevel;
     int bombJackCookiesCollected;
-    
+
     // Shop
     int selectedUpgradeIndex;
-    
+
     // Input tracking
     bool hasJumpedThisPress;
     bool hasInteractedThisPress;
 
     // persistant levels between side and main level (bomb jack and downwell)
     std::vector<Platform> savedPlatforms;
-    std::vector<Cookie*> savedCookies;
+    std::vector<Cookie *> savedCookies;
     std::vector<Collider> savedAlcoveCeilings;
     std::vector<SideDoor> savedSideDoors;
     float savedWorldHeight;
 
-    std::vector<Enemy*> savedEnemies;
-    std::vector<Projectile*> projectiles;
-    
+    std::vector<Enemy *> savedEnemies;
+    std::vector<Projectile *> projectiles;
+
     float transitionTimer;
-    
+
     void handleEvents();
     void update();
     void render();
-    
+
     // State updates
     void updateLobby();
     void updateDownwell();
@@ -96,7 +100,7 @@ private:
     void updateShop();
     void updateDownwellComplete();
     void updateRunComplete();
-    
+
     // State rendering
     void renderLobby();
     void renderDownwell();
@@ -106,7 +110,7 @@ private:
     void renderRunComplete();
     void renderRunIntro();
     void renderGameOver();
-    
+
     // Collisions
     void checkPlatformCollisions();
     void checkCookieCollisions();
@@ -114,13 +118,13 @@ private:
     void checkAlcoveCeilingCollisions();
     void checkSideDoorInteraction();
     bool isPlayerOnGround();
-    
+
     // UI
     void renderHearts();
     void renderUI();
     void renderEnergyBar();
     void renderStats();
-    
+
     // State transitions
     void loadLobby();
     void startNewRun();
@@ -135,20 +139,19 @@ private:
 
     void checkProjectileCollisions();
     void cleanProjectiles();
-    
+
     // Helper functions
     void cleanCurrentLevel();
     SDL_Rect worldToScreen(SDL_Rect worldRect);
     float worldToScreenY(float worldY);
-    
+
 public:
     Game();
     ~Game();
-    
+
     bool init();
     void run();
     void clean();
 };
-
 
 #endif

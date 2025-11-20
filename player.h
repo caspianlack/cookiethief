@@ -3,7 +3,8 @@
 
 #include <SDL2/SDL.h>
 
-class Player {
+class Player
+{
 public:
     float x, y;
     float velocityX, velocityY;
@@ -11,7 +12,7 @@ public:
     bool onGround;
     bool isGliding;
     float glideTime;
-    
+
     // Energy/Health system (Sugar Rush)
     float energy;
     float maxEnergy;
@@ -20,15 +21,15 @@ public:
     bool isDead;
     bool isInvincible;
     float invincibilityTimer;
-    
+
     // Stomp mechanics
     bool isStomping;
     float stompBounce;
-    
+
     bool isSluggish();
-    
+
     Player(float startX, float startY);
-    
+
     void jump();
     void startGliding();
     void stopGliding();
@@ -36,13 +37,13 @@ public:
     void moveRight();
     void stopMoving();
     void update();
-    void render(SDL_Renderer* renderer, bool showBars = true);
-    
+    void render(SDL_Renderer *renderer, bool showBars = true);
+
     void setPosition(float newX, float newY);
     void restoreEnergy(float amount);
     void loseHeart();
     void reset(float startX, float startY);
-    
+
     SDL_Rect getRect() const;
     SDL_Rect getFeetRect() const;
 };

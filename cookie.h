@@ -4,17 +4,18 @@
 #include <SDL2/SDL.h>
 #include "player.h"
 
-class Cookie {
+class Cookie
+{
 public:
     float x, y;
     float size;
     bool collected;
-    
+
     Cookie(float startX, float startY);
-    
-    void render(SDL_Renderer* renderer);
-    bool checkCollision(Player& player);
-    
+
+    void render(SDL_Renderer *renderer);
+    bool checkCollision(Player &player);
+
     SDL_Rect getRect();
 };
 

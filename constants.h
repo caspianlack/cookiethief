@@ -6,14 +6,14 @@ const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
 
 // Downwell pit dimensions
-const int PIT_WIDTH = 400;  // The playable vertical shaft
-const int PIT_LEFT = (SCREEN_WIDTH - PIT_WIDTH) / 2;  // 200
-const int PIT_RIGHT = PIT_LEFT + PIT_WIDTH;  // 600
+const int PIT_WIDTH = 400;                           // The playable vertical shaft
+const int PIT_LEFT = (SCREEN_WIDTH - PIT_WIDTH) / 2; // 200
+const int PIT_RIGHT = PIT_LEFT + PIT_WIDTH;          // 600
 
 // Bomb Jack arena dimensions
 const int ARENA_WIDTH = 500;
 const int ARENA_HEIGHT = 550;
-const int ARENA_LEFT = (SCREEN_WIDTH - ARENA_WIDTH) / 2;  // 150
+const int ARENA_LEFT = (SCREEN_WIDTH - ARENA_WIDTH) / 2; // 150
 const int ARENA_TOP = 25;
 
 // Physics constants
@@ -46,7 +46,7 @@ const float ENEMY_HEIGHT = 48.0f;
 const float PATROL_SPEED = 2.0f;
 const float PATROL_PAUSE_MIN = 1.0f;
 const float PATROL_PAUSE_MAX = 3.0f;
-const int PATROL_PAUSE_CHANCE = 100;  // 1/100 chance per frame
+const int PATROL_PAUSE_CHANCE = 100; // 1/100 chance per frame
 
 // Enemy: Jumper (Rolling Pin)
 const float JUMPER_SPEED = 3.5f;
@@ -64,14 +64,14 @@ const float SHOOTER_SPEED = 1.5f;
 const float SHOOTER_SHOOT_INTERVAL = 3.0f;
 const float SHOOTER_AIM_TIME = 0.8f;
 const float SHOOTER_INITIAL_COOLDOWN = 2.0f;
-const float SHOOTER_MIN_SHOOT_INTERVAL = 1.5f;  // With difficulty scaling
+const float SHOOTER_MIN_SHOOT_INTERVAL = 1.5f; // With difficulty scaling
 
 // Projectile settings
 const float PROJECTILE_SPEED = 6.0f;
 const float PROJECTILE_WIDTH = 12.0f;
 const float PROJECTILE_HEIGHT = 12.0f;
 const float PROJECTILE_GRAVITY = 0.2f;
-const float PROJECTILE_PREDICTION_TIME = 0.5f;  // Predictive aiming
+const float PROJECTILE_PREDICTION_TIME = 0.5f; // Predictive aiming
 
 // Enemy AI
 const float ENEMY_EDGE_CHECK_DISTANCE = 10.0f;
@@ -82,7 +82,6 @@ const float ENEMY_ALERT_RANGE = 300.0f;
 
 const float ENEMY_ACTIVATION_RANGE = 400.0f;
 const float ENEMY_DEACTIVATION_RANGE = 600.0f;
-
 
 // Difficulty scaling per floor
 const float ENEMY_SPEED_SCALE_PER_FLOOR = 0.1f;

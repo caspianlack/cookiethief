@@ -5,15 +5,17 @@
 #include <string>
 
 // type of rooms/ levels
-enum RoomType {
-    ROOM_DOWNWELL,    // Main vertical descent
-    ROOM_BOMB_JACK,   // Side platforming challenge
-    ROOM_SHOP,        // Upgrade shop
-    ROOM_BOSS         // Boss encounter (future)
+enum RoomType
+{
+    ROOM_DOWNWELL,  // Main vertical descent
+    ROOM_BOMB_JACK, // Side platforming challenge
+    ROOM_SHOP,      // Upgrade shop
+    ROOM_BOSS       // Boss encounter (future)
 };
 
 // Upgrade types
-enum UpgradeType {
+enum UpgradeType
+{
     // UPGRADE_DOUBLE_JUMP,
     UPGRADE_GLIDE_DURATION,
     UPGRADE_COOKIE_MAGNET,
@@ -21,7 +23,8 @@ enum UpgradeType {
     UPGRADE_MAX_ENERGY
 };
 
-struct Upgrade {
+struct Upgrade
+{
     UpgradeType type;
     int cost;
     bool purchased;
@@ -30,7 +33,8 @@ struct Upgrade {
 };
 
 // Stats for current run only
-struct RunStats {
+struct RunStats
+{
     int cookiesThisRun;
     int downwellLevelsCleared;
     int bombJackLevelsCleared;
@@ -38,12 +42,14 @@ struct RunStats {
     int distanceFell;
     float timeElapsed;
     int enemiesAvoided;
-    
-    RunStats() {
+
+    RunStats()
+    {
         reset();
     }
-    
-    void reset() {
+
+    void reset()
+    {
         cookiesThisRun = 0;
         downwellLevelsCleared = 0;
         bombJackLevelsCleared = 0;
@@ -55,7 +61,8 @@ struct RunStats {
 };
 
 // Persistent total stats
-struct PersistentStats {
+struct PersistentStats
+{
     int totalDeaths;
     int totalCookies;
     int totalDistanceFell;
@@ -64,8 +71,9 @@ struct PersistentStats {
     int downwellLevelsCleared;
     int highestFloorReached;
     int totalPlaythroughs;
-    
-    PersistentStats() {
+
+    PersistentStats()
+    {
         totalDeaths = 0;
         totalCookies = 0;
         totalDistanceFell = 0;
@@ -78,35 +86,36 @@ struct PersistentStats {
 };
 
 // manages each run
-class GameRun {
+class GameRun
+{
 private:
     RunStats stats;
     int currentFloor;
     bool active;
     std::vector<Upgrade> availableUpgrades;
     std::vector<UpgradeType> purchasedUpgrades;
-    
+
 public:
     GameRun();
-    
+
     void startNewRun();
     void endRun();
     bool isActive() const { return active; }
-    
+
     // stats
-    RunStats& getStats() { return stats; }
-    const RunStats& getStats() const { return stats; }
-    
+    RunStats &getStats() { return stats; }
+    const RunStats &getStats() const { return stats; }
+
     // floor
     int getCurrentFloor() const { return currentFloor; }
     void advanceFloor() { currentFloor++; }
-    
+
     // upgrades
     void initializeUpgrades();
-    const std::vector<Upgrade>& getAvailableUpgrades() const { return availableUpgrades; }
-    bool purchaseUpgrade(UpgradeType type, int& cookies);
+    const std::vector<Upgrade> &getAvailableUpgrades() const { return availableUpgrades; }
+    bool purchaseUpgrade(UpgradeType type, int &cookies);
     bool hasUpgrade(UpgradeType type) const;
-    
+
     float getGlideDurationMultiplier() const;
     // bool hasDoubleJump() const;
     int getBonusHearts() const;

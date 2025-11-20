@@ -7,17 +7,19 @@
 #include "cookie.h"
 #include "enemy.h"
 
-struct LevelData {
+struct LevelData
+{
     std::vector<Platform> platforms;
-    std::vector<Cookie*> cookies;
-    std::vector<Enemy*> enemies;
+    std::vector<Cookie *> cookies;
+    std::vector<Enemy *> enemies;
     float playerStartX;
     float playerStartY;
     std::string name;
     int requiredCookies; // bomb jack
 };
 
-enum GameState {
+enum GameState
+{
     STATE_MENU,
     STATE_LOBBY,
     STATE_RUN_INTRO,
@@ -31,32 +33,33 @@ enum GameState {
     STATE_GAME_OVER
 };
 
-class LevelManager {
+class LevelManager
+{
 private:
     std::vector<LevelData> levels;
     int currentLevelIndex;
-    
+
 public:
     LevelManager();
     ~LevelManager();
-    
+
     void initializeLevels();
-    LevelData* getCurrentLevel();
-    LevelData* getLevel(int index);
+    LevelData *getCurrentLevel();
+    LevelData *getLevel(int index);
     bool loadNextLevel();
     void resetToFirstLevel();
     int getLevelCount();
     int getCurrentLevelIndex();
-    
+
     // lobby
     LevelData createLobby();
-    
+
     // bomb jack
     LevelData createLevel1();
     LevelData createLevel2();
     LevelData createLevel3();
-    
-    void cleanLevel(LevelData& level);
+
+    void cleanLevel(LevelData &level);
 };
 
 #endif
