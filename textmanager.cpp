@@ -1,4 +1,4 @@
-#include "TextManager.h"
+#include "textManager.h"
 #include <cstdio>
 
 TextManager::TextManager()

@@ -1,8 +1,26 @@
+/**
+ * game.cpp - Core game logic for Cookie Thief
+ *
+ * Main responsibilities:
+ * - Game state management (lobby, runs, levels, shops)
+ * - Run progression and statistics tracking
+ * - Collision detection and physics
+ * - Rendering all game states
+ * - Input handling
+ */
+
 #include "game.h"
 #include "constants.h"
 #include <cstdio>
 #include <cmath>
 
+// ============================================================================
+// INITIALIZATION & CLEANUP
+// ============================================================================
+
+/**
+ * Constructor - Initialize all game state to defaults
+ */
 Game::Game()
 {
     window = nullptr;
@@ -35,6 +53,10 @@ Game::~Game()
     clean();
 }
 
+/**
+ * Initialize SDL, create window/renderer, load fonts, set up managers
+ * Returns: true on success, false on failure
+ */
 bool Game::init()
 {
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -57,6 +79,7 @@ bool Game::init()
         return false;
     }
 
+    // Initialize text rendering system
     textManager = new TextManager();
     if (!textManager->init())
     {
@@ -64,51 +87,57 @@ bool Game::init()
         return false;
     }
 
+    // Load fonts at different sizes for UI hierarchy
     textManager->loadFont("title", "PressStart2P.ttf", 32);
     textManager->loadFont("normal", "PressStart2P.ttf", 16);
     textManager->loadFont("small", "PressStart2P.ttf", 12);
 
+    // Create core game objects
     player = new Player(100, 100);
     levelManager = new LevelManager();
     levelManager->initializeLevels();
     downwellGenerator = new DownwellGenerator();
     currentRun = new GameRun();
 
+    // Start in lobby
     loadLobby();
 
     running = true;
     return true;
 }
 
+// ============================================================================
+// STATE MANAGEMENT
+// ============================================================================
+
+/**
+ * Load the lobby - safe hub where players can view stats and start runs
+ */
 void Game::loadLobby()
 {
     currentState = STATE_LOBBY;
     cleanCurrentLevel();
 
-    // lobby platforms
-    platforms.push_back({0, 550, 800, 50, {100, 100, 100, 255}});
-    platforms.push_back({300, 450, 200, 20, {139, 69, 19, 255}});
+    // Create simple lobby platforms
+    platforms.push_back({0, 550, 800, 50, {100, 100, 100, 255}}); // Ground
+    platforms.push_back({300, 450, 200, 20, {139, 69, 19, 255}}); // Center platform
 
     player->reset(400, 400);
     cameraY = 0;
 
-    // start door
+    // Position of the door that starts a run
     startRunDoor = {350, 380, 100, 90};
-    // TODO: move persistant stats into a seperate stats page
-    // printf("=== LOBBY LOADED ===\n");
-    // printf("Persistent Stats:\n");
-    // printf("  Total Cookies: %d\n", persistentStats.totalCookies);
-    // printf("  Total Deaths: %d\n", persistentStats.totalDeaths);
-    // printf("  Highest Floor: %d\n", persistentStats.highestFloorReached);
-    // printf("  Total Playthroughs: %d\n", persistentStats.totalPlaythroughs);
 }
 
+/**
+ * Start a new heist run - resets player stats and begins descent
+ */
 void Game::startNewRun()
 {
-    // printf("\n=== STARTING NEW RUN ===\n");
     currentRun->startNewRun();
     persistentStats.totalPlaythroughs++;
 
+    // Reset player to starting condition
     player->hearts = STARTING_HEARTS;
     player->maxHearts = STARTING_HEARTS;
     player->energy = MAX_ENERGY;
@@ -117,20 +146,25 @@ void Game::startNewRun()
     player->isInvincible = false;
     player->invincibilityTimer = 0;
 
+    // Show "stealing recipe" transition
     currentState = STATE_RUN_INTRO;
     transitionTimer = 2.0f;
     currentSegment = 0;
 }
 
+/**
+ * Generate a procedural Downwell segment with platforms, enemies, and side doors
+ * Each segment gets progressively harder based on floor number
+ */
 void Game::generateDownwellSegment()
 {
-    // printf("\n=== GENERATING DOWNWELL SEGMENT %d ===\n", currentSegment + 1);
     cleanCurrentLevel();
-    maxDepthReached = 0;
+    maxDepthReached = 0; // Reset depth tracker for new segment
 
     currentRun->advanceFloor();
     int difficulty = currentSegment;
 
+    // Generate the vertical level
     DownwellSegment segment = downwellGenerator->generateSegment(
         currentRun->getCurrentFloor(),
         difficulty);
@@ -140,7 +174,8 @@ void Game::generateDownwellSegment()
     enemies = segment.enemies;
     worldHeight = segment.segmentHeight;
 
-    // Generate side doors (bomb jack/ shop doors)
+    // Generate side doors to Bomb Jack levels or shops
+    // More doors appear as difficulty increases
     int doorCount = 1 + (difficulty / 2);
     if (doorCount > 3)
         doorCount = 3;
@@ -150,8 +185,10 @@ void Game::generateDownwellSegment()
         SideDoor door;
         door.worldY = (worldHeight / (doorCount + 1)) * (i + 1);
 
+        // Randomly place on left or right wall
         bool onLeftWall = (rand() % 2 == 0);
 
+        // Create alcove platform for the door
         Platform alcove;
         if (onLeftWall)
         {
@@ -170,6 +207,7 @@ void Game::generateDownwellSegment()
 
         platforms.push_back(alcove);
 
+        // Position door on the alcove
         door.rect = {
             onLeftWall ? (int)(PIT_LEFT - 55) : (int)(PIT_RIGHT + 5),
             (int)(alcove.y - 70),
@@ -177,12 +215,12 @@ void Game::generateDownwellSegment()
             70};
 
         door.worldY = alcove.y;
-        door.type = (i % 2 == 0) ? ROOM_BOMB_JACK : ROOM_SHOP;
+        door.type = (i % 2 == 0) ? ROOM_BOMB_JACK : ROOM_SHOP; // Alternate types
         door.used = false;
         door.onLeftWall = onLeftWall;
         sideDoors.push_back(door);
 
-        // collision when jumping into ceiling above aclove
+        // Add collision ceiling above alcove to prevent jumping through
         Collider ceiling;
         ceiling.rect = {
             onLeftWall ? (int)(PIT_LEFT - 80) : (int)(PIT_RIGHT - 30),
@@ -193,7 +231,7 @@ void Game::generateDownwellSegment()
         alcoveCeilings.push_back(ceiling);
     }
 
-    // Start player in CENTER
+    // Start player centered at top
     player->setPosition(PIT_LEFT + PIT_WIDTH / 2, 50);
     cameraY = 0;
     currentState = STATE_DOWNWELL;
@@ -203,22 +241,26 @@ void Game::generateDownwellSegment()
            (int)enemies.size(), (int)sideDoors.size());
 }
 
+/**
+ * Enter a side room (Bomb Jack level or shop) from Downwell
+ * Saves the current Downwell state to restore later
+ */
 void Game::enterSideRoom(RoomType type)
 {
     printf("Entering side room type %d\n", type);
 
-    // save position
+    // Save return position
     playerReturnX = player->x;
     playerReturnY = player->y;
     previousState = STATE_DOWNWELL;
 
-    // save downwell state
+    // Save entire Downwell state
     savedPlatforms = platforms;
     savedSideDoors = sideDoors;
     savedWorldHeight = worldHeight;
     savedAlcoveCeilings = alcoveCeilings;
 
-    // copy cookies (ptr)
+    // Deep copy cookies (only uncollected ones)
     savedCookies.clear();
     for (auto *cookie : cookies)
     {
@@ -228,16 +270,17 @@ void Game::enterSideRoom(RoomType type)
         }
     }
 
-    // copy enemies (ptr)
+    // Deep copy enemies
     savedEnemies.clear();
     for (auto *enemy : enemies)
     {
         savedEnemies.push_back(new Enemy(enemy->x, enemy->y));
     }
 
-    // enter bomb jack side level or enter shop
+    // Load appropriate room type
     if (type == ROOM_BOMB_JACK)
     {
+        // Load a Bomb Jack platforming challenge
         int levelIndex = currentSegment % levelManager->getLevelCount();
         currentBombJackLevel = levelManager->getLevel(levelIndex);
 
@@ -271,12 +314,15 @@ void Game::enterSideRoom(RoomType type)
     hasInteractedThisPress = true;
 }
 
+/**
+ * Exit side room and return to Downwell at saved position
+ * Restores the Downwell state exactly as it was
+ */
 void Game::exitSideRoom()
 {
     printf("Exiting side room\n");
-    // TODO: add invinsability briefly after leaving
 
-    // mark door as used
+    // Mark the door as used (Bomb Jack levels only - shops can be revisited)
     for (auto &door : savedSideDoors)
     {
         if (fabs(door.worldY - playerReturnY) < 100)
@@ -289,7 +335,7 @@ void Game::exitSideRoom()
         }
     }
 
-    // restore state
+    // Restore Downwell state
     cleanCurrentLevel();
 
     platforms = savedPlatforms;
@@ -315,7 +361,7 @@ void Game::exitSideRoom()
     savedCookies.clear();
     savedEnemies.clear();
 
-    // Teleport player back
+    // Teleport player back to where they entered
     player->setPosition(playerReturnX, playerReturnY);
 
     // Center camera on player
@@ -330,6 +376,10 @@ void Game::exitSideRoom()
     currentState = STATE_DOWNWELL;
 }
 
+/**
+ * Called when player reaches the bottom of a Downwell segment
+ * Transitions to shop before next segment
+ */
 void Game::completeDownwellSegment()
 {
     printf("\n=== DOWNWELL SEGMENT COMPLETE ===\n");
@@ -339,11 +389,15 @@ void Game::completeDownwellSegment()
     currentState = STATE_DOWNWELL_COMPLETE;
 }
 
+/**
+ * End the current run (either victory or death)
+ * Updates persistent statistics and shows summary
+ */
 void Game::endRun(bool victory)
 {
     printf("\n=== RUN ENDED ===\n");
 
-    // Update persistent stats
+    // Merge run stats into persistent stats
     RunStats &runStats = currentRun->getStats();
     persistentStats.totalCookies += runStats.cookiesThisRun;
     persistentStats.totalDistanceFell += runStats.distanceFell;
@@ -356,6 +410,7 @@ void Game::endRun(bool victory)
         persistentStats.totalDeaths++;
     }
 
+    // Track highest floor reached
     if (currentRun->getCurrentFloor() > persistentStats.highestFloorReached)
     {
         persistentStats.highestFloorReached = currentRun->getCurrentFloor();
@@ -365,16 +420,20 @@ void Game::endRun(bool victory)
     currentState = victory ? STATE_RUN_COMPLETE : STATE_GAME_OVER;
 }
 
+/**
+ * Apply purchased upgrades to player stats
+ * Called after buying upgrades in shop
+ */
 void Game::applyUpgradesToPlayer()
 {
-    // Apply all purchased upgrades to the player
-    // TODO: implement all upgrades
+    // Increase max hearts based on purchases
     player->maxHearts = STARTING_HEARTS + currentRun->getBonusHearts();
     if (player->hearts > player->maxHearts)
     {
         player->hearts = player->maxHearts;
     }
 
+    // Increase max energy based on purchases
     player->maxEnergy = MAX_ENERGY + currentRun->getMaxEnergyBonus();
     if (player->energy > player->maxEnergy)
     {
@@ -382,6 +441,10 @@ void Game::applyUpgradesToPlayer()
     }
 }
 
+/**
+ * Clean up all dynamic objects in current level
+ * Called before loading new level or exiting
+ */
 void Game::cleanCurrentLevel()
 {
     platforms.clear();
@@ -407,6 +470,14 @@ void Game::cleanCurrentLevel()
     projectiles.clear();
 }
 
+// ============================================================================
+// COORDINATE TRANSFORMATIONS
+// ============================================================================
+
+/**
+ * Convert world coordinates to screen coordinates (accounting for camera)
+ * Used in Downwell to render objects relative to camera position
+ */
 SDL_Rect Game::worldToScreen(SDL_Rect worldRect)
 {
     return {
@@ -416,11 +487,22 @@ SDL_Rect Game::worldToScreen(SDL_Rect worldRect)
         worldRect.h};
 }
 
+/**
+ * Convert a single world Y coordinate to screen Y
+ */
 float Game::worldToScreenY(float worldY)
 {
     return worldY - cameraY;
 }
 
+// ============================================================================
+// COLLISION DETECTION
+// ============================================================================
+
+/**
+ * Check if player is standing on a platform
+ * Used for jump input validation
+ */
 bool Game::isPlayerOnGround()
 {
     SDL_Rect playerRect = player->getRect();
@@ -432,6 +514,7 @@ bool Game::isPlayerOnGround()
         int playerBottom = playerRect.y + playerRect.h;
         int platformTop = platformRect.y;
 
+        // Check if player is just touching platform from above
         if (playerBottom >= platformTop && playerBottom <= platformTop + 5)
         {
             if (playerRect.x + playerRect.w > platformRect.x &&
@@ -445,6 +528,14 @@ bool Game::isPlayerOnGround()
     return false;
 }
 
+// ============================================================================
+// INPUT HANDLING
+// ============================================================================
+
+/**
+ * Process all input events (keyboard, window events)
+ * Handles state-specific input (lobby, shop navigation, gameplay)
+ */
 void Game::handleEvents()
 {
     SDL_Event event;
@@ -456,7 +547,7 @@ void Game::handleEvents()
             running = false;
         }
 
-        // check for restart when dead
+        // Death state - allow restart
         if (player->isDead && event.type == SDL_KEYDOWN)
         {
             if (event.key.keysym.sym == SDLK_r)
@@ -468,7 +559,7 @@ void Game::handleEvents()
 
         if (event.type == SDL_KEYDOWN && !event.key.repeat)
         {
-            // start run from lobby
+            // LOBBY: Start run
             if (currentState == STATE_LOBBY && event.key.keysym.sym == SDLK_e)
             {
                 if (playerNearStartDoor)
@@ -477,7 +568,7 @@ void Game::handleEvents()
                 }
             }
 
-            // end run go lobby
+            // RUN END: Return to lobby
             if (currentState == STATE_RUN_COMPLETE || currentState == STATE_GAME_OVER)
             {
                 if (event.key.keysym.sym == SDLK_SPACE)
@@ -486,7 +577,7 @@ void Game::handleEvents()
                 }
             }
 
-            // downwell level to between level shop
+            // DOWNWELL COMPLETE: Proceed to shop
             if (currentState == STATE_DOWNWELL_COMPLETE && event.key.keysym.sym == SDLK_SPACE)
             {
                 currentSegment++;
@@ -495,7 +586,7 @@ void Game::handleEvents()
                 shopIsFromSideRoom = false;
             }
 
-            // shop for in level and between level
+            // SHOP: Navigate and purchase
             if (currentState == STATE_SHOP)
             {
                 const std::vector<Upgrade> &upgrades = currentRun->getAvailableUpgrades();
@@ -516,7 +607,7 @@ void Game::handleEvents()
                 {
                     if (selectedUpgradeIndex == (int)upgrades.size())
                     {
-                        // "Continue"
+                        // "Continue" option selected
                         if (shopIsFromSideRoom)
                         {
                             exitSideRoom();
@@ -529,6 +620,7 @@ void Game::handleEvents()
                     }
                     else if (selectedUpgradeIndex < (int)upgrades.size())
                     {
+                        // Try to purchase upgrade
                         int runCookies = currentRun->getStats().cookiesThisRun;
 
                         if (currentRun->purchaseUpgrade(upgrades[selectedUpgradeIndex].type, runCookies))
@@ -546,7 +638,7 @@ void Game::handleEvents()
                 }
             }
 
-            // leave bomb jack level when no more cookies
+            // BOMB JACK: Auto-exit when complete (also has manual exit)
             if (currentState == STATE_BOMB_JACK && event.key.keysym.sym == SDLK_e)
             {
                 if (currentBombJackLevel && bombJackCookiesCollected >= currentBombJackLevel->requiredCookies)
@@ -556,12 +648,10 @@ void Game::handleEvents()
                 }
             }
 
-            // side doors in downwell
+            // DOWNWELL: Side door interaction
             if (currentState == STATE_DOWNWELL && event.key.keysym.sym == SDLK_e && !hasInteractedThisPress)
             {
                 SDL_Rect playerWorldRect = player->getRect();
-
-                printf("Checking door interactions - Player at world Y: %.1f\n", player->y);
 
                 for (auto &door : sideDoors)
                 {
@@ -569,12 +659,8 @@ void Game::handleEvents()
                     {
                         SDL_Rect doorWorldRect = door.rect;
 
-                        printf("  Door at world Y: %.1f, door rect: %d,%d,%d,%d\n",
-                               door.worldY, doorWorldRect.x, doorWorldRect.y, doorWorldRect.w, doorWorldRect.h);
-
                         if (SDL_HasIntersection(&playerWorldRect, &doorWorldRect))
                         {
-                            printf("  ENTERING DOOR TYPE %d\n", door.type);
                             enterSideRoom(door.type);
                             break;
                         }
@@ -583,7 +669,7 @@ void Game::handleEvents()
                 hasInteractedThisPress = true;
             }
 
-            // jump or glide
+            // JUMP/GLIDE: Space bar
             if (event.key.keysym.sym == SDLK_SPACE)
             {
                 if (isPlayerOnGround())
@@ -595,11 +681,13 @@ void Game::handleEvents()
                 }
                 else if (!hasJumpedThisPress)
                 {
+                    // Hold space while airborne to glide
                     player->startGliding();
                 }
             }
         }
 
+        // Key release handling
         if (event.type == SDL_KEYUP)
         {
             if (event.key.keysym.sym == SDLK_SPACE)
@@ -614,7 +702,7 @@ void Game::handleEvents()
         }
     }
 
-    // movement
+    // Continuous movement (not event-based)
     if (!player->isDead && (currentState == STATE_DOWNWELL || currentState == STATE_BOMB_JACK || currentState == STATE_LOBBY))
     {
         const Uint8 *keyState = SDL_GetKeyboardState(NULL);
@@ -633,8 +721,16 @@ void Game::handleEvents()
     }
 }
 
+// ============================================================================
+// GAME UPDATES
+// ============================================================================
+
+/**
+ * Main update loop - calls state-specific update functions
+ */
 void Game::update()
 {
+    // Handle run intro transition
     if (currentState == STATE_RUN_INTRO)
     {
         transitionTimer -= 1.0f / FPS;
@@ -645,6 +741,7 @@ void Game::update()
         return;
     }
 
+    // State-specific updates
     if (currentState == STATE_LOBBY)
     {
         updateLobby();
@@ -658,26 +755,33 @@ void Game::update()
         updateBombJack();
     }
 
+    // Reset jump flag when on ground
     if (player->onGround)
     {
         hasJumpedThisPress = false;
     }
 }
 
+/**
+ * Update lobby state - player can move around, infinite glide/energy
+ */
 void Game::updateLobby()
 {
     player->update();
     checkPlatformCollisions();
 
-    // Infinite glide and energy in lobby (just keep maxing)
+    // Infinite resources in lobby (safe space)
     player->glideTime = MAX_GLIDE_TIME;
     player->energy = MAX_ENERGY;
 
-    // near start door in lobby
+    // Check if player is near the start door
     SDL_Rect playerRect = player->getRect();
     playerNearStartDoor = SDL_HasIntersection(&playerRect, &startRunDoor);
 }
 
+/**
+ * Update Bomb Jack level - platforming challenge with cookie collection goal
+ */
 void Game::updateBombJack()
 {
     player->update();
@@ -685,12 +789,13 @@ void Game::updateBombJack()
     checkCookieCollisions();
     checkEnemyCollisions();
 
+    // Update enemies
     for (auto *enemy : enemies)
     {
         enemy->update(*player, platforms, &projectiles);
     }
 
-    // bomb jack win condition
+    // Auto-exit when all cookies collected
     if (currentBombJackLevel && bombJackCookiesCollected >= currentBombJackLevel->requiredCookies)
     {
         printf("All cookies collected! Auto-exiting Bomb Jack level...\n");
@@ -699,12 +804,92 @@ void Game::updateBombJack()
         return;
     }
 
+    // Death check
     if (player->isDead)
     {
         endRun(false);
     }
 }
 
+/**
+ * Update Downwell segment - vertical descent with camera following
+ * Core gameplay loop: fall, avoid enemies, collect cookies, reach bottom
+ */
+void Game::updateDownwell()
+{
+    float oldY = player->y;
+
+    player->update();
+    checkPlatformCollisions();
+    checkAlcoveCeilingCollisions();
+    checkCookieCollisions();
+    checkEnemyCollisions();
+
+    // Track maximum depth reached (for UI percentage)
+    if (player->y > maxDepthReached)
+    {
+        maxDepthReached = player->y;
+    }
+
+    // Smooth camera following - centers on player vertically
+    float targetCameraY = player->y - SCREEN_HEIGHT / 2;
+    float lerpFactor = 0.2f; // Smooth interpolation
+    cameraY += (targetCameraY - cameraY) * lerpFactor;
+
+    // Clamp camera to world bounds
+    if (cameraY < 0)
+        cameraY = 0;
+    if (cameraY > worldHeight - SCREEN_HEIGHT)
+    {
+        cameraY = worldHeight - SCREEN_HEIGHT;
+    }
+
+    // Update enemies and projectiles
+    for (auto *enemy : enemies)
+    {
+        enemy->update(*player, platforms, &projectiles);
+    }
+
+    for (auto *proj : projectiles)
+    {
+        proj->update();
+    }
+
+    checkProjectileCollisions();
+    cleanProjectiles();
+
+    // Check if player reached exit hole at bottom
+    if (player->y >= worldHeight - 40)
+    {
+        float holeCenterX = PIT_LEFT + PIT_WIDTH / 2;
+        float holeWidth = 120.0f;
+
+        // Check if player is within the hole horizontally
+        if (player->x + player->width / 2 > holeCenterX - holeWidth / 2 &&
+            player->x + player->width / 2 < holeCenterX + holeWidth / 2)
+        {
+            printf("Player went through the exit hole!\n");
+            completeDownwellSegment();
+        }
+    }
+
+    // Track distance fallen (only count downward movement)
+    if (player->y > oldY)
+    {
+        currentRun->getStats().distanceFell += (int)(player->y - oldY);
+    }
+
+    // Death check
+    if (player->isDead)
+    {
+        endRun(false);
+    }
+}
+
+/**
+ * Platform collision detection with directional checks
+ * Handles landing on platforms, wall collisions, and state-specific boundaries
+ */
 void Game::checkPlatformCollisions()
 {
     player->onGround = false;
@@ -715,11 +900,13 @@ void Game::checkPlatformCollisions()
     int playerTop = playerRect.y;
     int playerBottom = playerRect.y + playerRect.h;
 
+    // Previous position for directional collision
     int prevPlayerLeft = playerLeft - player->velocityX;
     int prevPlayerRight = playerRight - player->velocityX;
     int prevPlayerTop = playerTop - player->velocityY;
     int prevPlayerBottom = playerBottom - player->velocityY;
 
+    // Check collision with all platforms
     for (auto &platform : platforms)
     {
         SDL_Rect platformRect = platform.getRect();
@@ -730,13 +917,14 @@ void Game::checkPlatformCollisions()
 
         if (SDL_HasIntersection(&playerRect, &platformRect))
         {
-            // can phase through platforms from bellow only
+            // Landing on top of platform (can phase through from below)
             if (player->velocityY >= 0 && prevPlayerBottom <= platformTop + 3)
             {
                 player->y = platformTop - player->height;
                 player->velocityY = 0;
                 player->onGround = true;
             }
+            // Side collisions (wall bumping)
             else if (playerBottom > platformTop + 3 && playerTop < platformBottom)
             {
                 if (player->velocityX > 0 && prevPlayerRight <= platformLeft + 2)
@@ -753,9 +941,10 @@ void Game::checkPlatformCollisions()
         }
     }
 
-    // downwell walls
+    // DOWNWELL: Wall boundaries with alcove detection
     if (currentState == STATE_DOWNWELL)
     {
+        // Build alcove zones for each door
         std::vector<SDL_Rect> leftAlcoveZones;
         std::vector<SDL_Rect> rightAlcoveZones;
 
@@ -779,6 +968,7 @@ void Game::checkPlatformCollisions()
 
         SDL_Rect playerRect = player->getRect();
 
+        // Left wall with alcove checking
         if (player->x < PIT_LEFT)
         {
             bool inLeftAlcove = false;
@@ -791,9 +981,9 @@ void Game::checkPlatformCollisions()
                 }
             }
 
-            // alclove depth (width)
             if (inLeftAlcove)
             {
+                // Inside alcove - allow deeper penetration
                 if (player->x < PIT_LEFT - 80)
                 {
                     player->x = PIT_LEFT - 80;
@@ -1107,76 +1297,6 @@ void Game::cleanProjectiles()
         {
             ++it;
         }
-    }
-}
-
-void Game::updateDownwell()
-{
-    float oldY = player->y;
-    player->update();
-    checkPlatformCollisions();
-    checkAlcoveCeilingCollisions();
-    checkCookieCollisions();
-    checkEnemyCollisions();
-
-    // Track maximum depth reached
-    if (player->y > maxDepthReached)
-    {
-        maxDepthReached = player->y;
-    }
-
-    // Center camera on player vertically
-    float targetCameraY = player->y - SCREEN_HEIGHT / 2;
-
-    // smooth camera
-    float lerpFactor = 0.2f;
-    cameraY += (targetCameraY - cameraY) * lerpFactor;
-
-    // Clamp camera
-    if (cameraY < 0)
-        cameraY = 0;
-    if (cameraY > worldHeight - SCREEN_HEIGHT)
-    {
-        cameraY = worldHeight - SCREEN_HEIGHT;
-    }
-
-    // Update enemies
-    for (auto *enemy : enemies)
-    {
-        enemy->update(*player, platforms, &projectiles);
-    }
-
-    for (auto *proj : projectiles)
-    {
-        proj->update();
-    }
-
-    checkProjectileCollisions();
-    cleanProjectiles();
-
-    if (player->y >= worldHeight - 40)
-    { // 100 level
-        float holeCenterX = PIT_LEFT + PIT_WIDTH / 2;
-        float holeWidth = 120.0f;
-
-        // Check if player is within the hole horizontally
-        if (player->x + player->width / 2 > holeCenterX - holeWidth / 2 &&
-            player->x + player->width / 2 < holeCenterX + holeWidth / 2)
-        {
-            printf("Player went through the exit hole!\n");
-            completeDownwellSegment();
-        }
-    }
-
-    // distance tracker (down)
-    if (player->y > oldY)
-    {
-        currentRun->getStats().distanceFell += (int)(player->y - oldY);
-    }
-
-    if (player->isDead)
-    {
-        endRun(false);
     }
 }
 
