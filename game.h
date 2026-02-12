@@ -12,6 +12,7 @@
 #include "gamerun.h"
 #include "downwellgenerator.h"
 #include "projectile.h"
+#include "texturemanager.h"
 
 struct SideDoor
 {
