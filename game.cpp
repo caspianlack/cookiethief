@@ -35,7 +35,6 @@ Game::Game()
     previousState = STATE_LOBBY;
     cameraY = 0;
     worldHeight = 0;
-    playerNearStartDoor = false;
     currentSegment = 0;
     currentBombJackLevel = nullptr;
     bombJackCookiesCollected = 0;
@@ -45,7 +44,10 @@ Game::Game()
     transitionTimer = 0;
     playerReturnX = 0;
     playerReturnY = 0;
+    playerReturnX = 0;
+    playerReturnY = 0;
     maxDepthReached = 0;
+    interactionTimer = 0.0f;
 }
 
 Game::~Game()
@@ -125,8 +127,10 @@ void Game::loadLobby()
     player->reset(400, 400);
     cameraY = 0;
 
-    // Position of the door that starts a run
-    startRunDoor = {350, 380, 100, 90};
+    // Position of the recipe to steal
+    recipeRect = {385, 380, 30, 40}; // Small golden rectangle
+    interactionTimer = 0.0f;
+    playerNearRecipe = false;
 }
 
 /**
@@ -559,14 +563,14 @@ void Game::handleEvents()
 
         if (event.type == SDL_KEYDOWN && !event.key.repeat)
         {
-            // LOBBY: Start run
-            if (currentState == STATE_LOBBY && event.key.keysym.sym == SDLK_e)
-            {
-                if (playerNearStartDoor)
-                {
-                    startNewRun();
-                }
-            }
+            // LOBBY: Start run (Held interaction now handled in updateLobby)
+            // if (currentState == STATE_LOBBY && event.key.keysym.sym == SDLK_e)
+            // {
+            //     if (playerNearStartDoor)
+            //     {
+            //         startNewRun();
+            //     }
+            // }
 
             // RUN END: Return to lobby
             if (currentState == STATE_RUN_COMPLETE || currentState == STATE_GAME_OVER)
@@ -774,9 +778,33 @@ void Game::updateLobby()
     player->glideTime = MAX_GLIDE_TIME;
     player->energy = MAX_ENERGY;
 
-    // Check if player is near the start door
+    // Check if player is near the recipe
     SDL_Rect playerRect = player->getRect();
-    playerNearStartDoor = SDL_HasIntersection(&playerRect, &startRunDoor);
+    playerNearRecipe = SDL_HasIntersection(&playerRect, &recipeRect);
+
+    // Handle stealing interaction
+    if (playerNearRecipe)
+    {
+        const Uint8 *keyState = SDL_GetKeyboardState(NULL);
+        if (keyState[SDL_SCANCODE_E])
+        {
+            interactionTimer += 1.0f / 60.0f; // Assuming 60 FPS update
+            if (interactionTimer >= RECIPE_STEAL_TIME)
+            {
+                startNewRun();
+            }
+        }
+        else
+        {
+            // Reset if key released
+            interactionTimer = 0.0f;
+        }
+    }
+    else
+    {
+        // Reset if walked away
+        interactionTimer = 0.0f;
+    }
 }
 
 /**
@@ -1221,21 +1249,46 @@ void Game::renderLobby()
         platform.render(renderer);
     }
 
-    // Door
-    SDL_SetRenderDrawColor(renderer, 101, 67, 33, 255);
-    SDL_RenderFillRect(renderer, &startRunDoor);
-    SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
-    SDL_RenderDrawRect(renderer, &startRunDoor);
+    // Recipe (The objective)
+    SDL_SetRenderDrawColor(renderer, 255, 215, 0, 255); // Gold
+    SDL_RenderFillRect(renderer, &recipeRect);
+    
+    // Shine effect
+    SDL_SetRenderDrawColor(renderer, 255, 255, 200, 255);
+    SDL_Rect shine = {recipeRect.x + 5, recipeRect.y + 5, 5, 5};
+    SDL_RenderFillRect(renderer, &shine);
 
-    SDL_SetRenderDrawColor(renderer, 255, 215, 0, 255);
-    SDL_Rect knob = {startRunDoor.x + startRunDoor.w - 15, startRunDoor.y + startRunDoor.h / 2 - 5, 10, 10};
-    SDL_RenderFillRect(renderer, &knob);
-
-    if (playerNearStartDoor)
+    if (playerNearRecipe)
     {
         SDL_Color white = {255, 255, 255, 255};
-        textManager->renderText(renderer, "Press E to Start Heist", "small",
-                                startRunDoor.x + startRunDoor.w / 2, startRunDoor.y - 30, white, true);
+        
+        if (interactionTimer > 0)
+        {
+            // Progress Bar
+            int barWidth = 60;
+            int barHeight = 10;
+            int barX = recipeRect.x + recipeRect.w / 2 - barWidth / 2;
+            int barY = recipeRect.y - 20;
+
+            // Background
+            SDL_SetRenderDrawColor(renderer, 50, 50, 50, 255);
+            SDL_Rect bg = {barX, barY, barWidth, barHeight};
+            SDL_RenderFillRect(renderer, &bg);
+
+            // Fill
+            float progress = interactionTimer / RECIPE_STEAL_TIME;
+            SDL_SetRenderDrawColor(renderer, 255, 50, 50, 255);
+            SDL_Rect fill = {barX + 1, barY + 1, (int)((barWidth - 2) * progress), barHeight - 2};
+            SDL_RenderFillRect(renderer, &fill);
+            
+            textManager->renderText(renderer, "STEALING...", "small",
+                                recipeRect.x + recipeRect.w / 2, recipeRect.y - 40, white, true);
+        }
+        else
+        {
+            textManager->renderText(renderer, "Hold E to Steal Recipe", "small",
+                                recipeRect.x + recipeRect.w / 2, recipeRect.y - 30, white, true);
+        }
     }
 
     player->render(renderer, false);

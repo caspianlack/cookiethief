@@ -12,7 +12,7 @@
 #include "gamerun.h"
 #include "downwellgenerator.h"
 #include "projectile.h"
-#include "texturemanager.h"
+// #include "texturemanager.h"
 
 struct SideDoor
 {
@@ -57,8 +57,10 @@ private:
     float worldHeight;
 
     // Lobby
-    SDL_Rect startRunDoor;
-    bool playerNearStartDoor;
+    SDL_Rect recipeRect;
+    bool playerNearRecipe;
+    float interactionTimer;
+    const float RECIPE_STEAL_TIME = 1.0f;
 
     // Downwell tracking
     int currentSegment;
