@@ -1,0 +1,14 @@
+# Cookie Thief
+
+## Neesa is a girl who really loves cookies from The Cookie Jar, a local bakery. One day, she decides to steal not just cookies from the bakery, but their secret recipe also.
+However, she doesn't realize that the bakery is guarded by a group of robots chefs, and she must use her wit and agility to escape with the recipe.
+
+A fast-paced procedural descent platformer inspired by Downwell with explosive side arenas reminiscent of Bomb Jack.
+
+![player animations](./readme/playeranimations.gif)
+
+Current progress is the core game loop and mechanics is there but still needs quite a bit of work, just recently transitioned from rendering rects for the game to sdl2 image.
+
+Working on making the game look more polished with player, enemy level sprites instead of placeholders before working on more mechanics like fixing shop and stats etc.
+
+![MVP demo of current gameloop](./readme/mvpDEMO.mp4)
