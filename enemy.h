@@ -12,7 +12,8 @@ enum EnemyType
 {
     ENEMY_PATROL, // Frying pan - patrols platform edges
     ENEMY_JUMPER, // Rolling pin - chases and jumps at player
-    ENEMY_SHOOTER // Wooden spoon - shoots projectiles from platform edges
+    ENEMY_SHOOTER, // Wooden spoon - shoots projectiles from platform edges
+    ENEMY_BAKER   // The Boss - chases player down the hole
 };
 
 class Enemy
@@ -37,6 +38,10 @@ public:
     int patrolDirection;
     bool hasFoundEdges;
     float pauseTimer;
+    
+    // Animation
+    float animTimer;
+    int currentFrame;
     bool isPaused;
     bool isSleeping;
     float wakeUpRange;
@@ -87,6 +92,8 @@ private:
     bool hasLandingPlatformAhead(const std::vector<Platform> &platforms, bool checkRight);
     Platform *findPlatformBetween(const std::vector<Platform> &platforms, float startY, float targetY, bool preferRight);
     bool isBlockedHorizontally(const std::vector<Platform> &platforms, bool checkRight);
+
+    void updateBaker(Player &player);
 };
 
 #endif

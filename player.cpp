@@ -1,6 +1,7 @@
 #include "player.h"
 #include "constants.h"
 #include <cstdio>
+#include <cmath>
 
 Player::Player(float startX, float startY)
 {
@@ -26,6 +27,92 @@ Player::Player(float startX, float startY)
     // Initialize stomp variables
     isStomping = false;
     stompBounce = -10.0f;
+
+    // Animation
+    animState = IDLE;
+    animTimer = 0.0f;
+    currentFrame = 0;
+    facingLeft = false;
+}
+
+void Player::updateAnimation()
+{
+    // 1. Determine State
+    if (isDead) {
+        animState = DIE;
+    } else if (isGliding) {
+        animState = GLIDE;
+    } else if (!onGround) {
+        // Jump or Fall?
+        if (velocityY < 0) animState = JUMP;
+        else animState = JUMP; // Use jump frame for falling too, or maybe second frame of jump
+    } else {
+        if (fabs(velocityX) > 0.1f) {
+            animState = WALK;
+        } else {
+            animState = IDLE;
+        }
+    }
+
+    // 2. Update Timer & Frame
+    animTimer += 1.0f / 60.0f; // Assuming 60 FPS update
+    float frameDuration = 0.2f; // Default 5 FPS
+
+    int numFrames = 1;
+    int row = 0;
+
+    // Aseprite sheet mapping (4 columns × 12 rows):
+    // Row 2 (index 1): Idle - 2 frames
+    // Row 5 (index 4): Walk - 2 frames
+    // Row 11 (index 10): Death/Faint - 4 frames
+    // We'll use row 4 for jump/glide as well for now
+    
+    switch (animState)
+    {
+    case IDLE:
+        numFrames = 2; row = 1; frameDuration = 0.5f; break;
+    case WALK:
+        numFrames = 2; row = 4; frameDuration = 0.15f; break;
+    case JUMP:
+        numFrames = 2; row = 4; frameDuration = 0.2f; break; // Use walk frames for jump
+    case DIE:
+        numFrames = 4; row = 10; frameDuration = 0.2f; break; // 4 frames for death
+    case GLIDE:
+        numFrames = 1; row = 1; break; // Use first idle frame for glide
+    default: break;
+    }
+
+    if (animTimer >= frameDuration)
+    {
+        animTimer = 0;
+        currentFrame = (currentFrame + 1) % numFrames;
+        
+        // Don't loop death animation
+        if (animState == DIE && currentFrame == numFrames - 1) {
+            currentFrame = numFrames - 1;
+        }
+    }
+}
+
+SDL_Rect Player::getSpriteSrcRect()
+{
+    int row = 0;
+    switch (animState) {
+        case IDLE: row = 1; break;  // Row 2 in Aseprite (index 1)
+        case WALK: row = 4; break;  // Row 5 in Aseprite (index 4)
+        case JUMP: row = 4; break;  // Use walk row for jump
+        case DIE:  row = 10; break; // Row 11 in Aseprite (index 10)
+        case GLIDE: row = 4; break; // Use walk row for glide
+        default: row = 1; break;
+    }
+    
+    // Fall logic: use 2nd frame of Walk row
+    if (animState == JUMP && velocityY > 0) {
+        // Let animation cycle naturally
+    }
+
+    // Return source rectangle (32x32 tiles)
+    return {currentFrame * SPRITE_SIZE, row * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE};
 }
 
 void Player::jump()
@@ -244,6 +331,12 @@ void Player::update()
 
     x += velocityX;
     y += velocityY;
+
+    // Update facing direction
+    if (velocityX < -0.1f) facingLeft = true;
+    if (velocityX > 0.1f) facingLeft = false;
+
+    updateAnimation();
 }
 
 void Player::render(SDL_Renderer *renderer, bool showBars)

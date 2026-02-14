@@ -12,7 +12,7 @@
 #include "gamerun.h"
 #include "downwellgenerator.h"
 #include "projectile.h"
-// #include "texturemanager.h"
+#include "texturemanager.h"
 
 struct SideDoor
 {
@@ -40,10 +40,12 @@ private:
     std::vector<Platform> platforms;
     std::vector<Cookie *> cookies;
     std::vector<Enemy *> enemies;
+    Enemy *baker; // The persistent chaser
     std::vector<SideDoor> sideDoors;
     std::vector<Collider> alcoveCeilings;
 
     TextManager *textManager;
+    TextureManager *textureManager;
     LevelManager *levelManager;
     DownwellGenerator *downwellGenerator;
     GameRun *currentRun;

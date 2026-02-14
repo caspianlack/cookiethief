@@ -89,6 +89,40 @@ bool Game::init()
         return false;
     }
 
+    // Initialize Texture Manager (Sprite System)
+    textureManager = new TextureManager();
+    if (!textureManager->init(renderer))
+    {
+        printf("Failed to initialize TextureManager!\n");
+        return false;
+    }
+
+    // --- LOAD SPRITES FROM FILES ---
+    
+    // Player Sprite Sheet
+    if (!textureManager->loadTexture("player", "assets/player_sheet.png"))
+    {
+        printf("WARNING: Failed to load player sprite sheet. Falling back to simple rects pending.\n");
+    }
+
+    // Enemy
+    if (textureManager->loadTexture("enemy_sheet", "assets/enemy_sheet.png"))
+    {
+        // For now alias "enemy" to "enemy_sheet" or handle in render
+        // Actually, let's keep "enemy" as the texture name if possible, or load straight to "enemy"
+        // But the file is "enemy_sheet.png" (frame based).
+        // Let's load as "enemy" for simplicity in existing code
+        textureManager->loadTexture("enemy", "assets/enemy_sheet.png");
+    }
+
+    // Baker
+    textureManager->loadTexture("baker", "assets/baker.png");
+
+    // Items
+    textureManager->loadTexture("cookie", "assets/cookie.png");
+    textureManager->loadTexture("recipe", "assets/recipe.png");
+    textureManager->loadTexture("platform", "assets/platform.png"); // If we want textured platforms later
+
     // Load fonts at different sizes for UI hierarchy
     textManager->loadFont("title", "PressStart2P.ttf", 32);
     textManager->loadFont("normal", "PressStart2P.ttf", 16);
@@ -177,6 +211,11 @@ void Game::generateDownwellSegment()
     cookies = segment.cookies;
     enemies = segment.enemies;
     worldHeight = segment.segmentHeight;
+
+    // Spawn The Baker (Chaser)
+    // Start him above the screen so he drops in menacingly
+    baker = new Enemy(PIT_LEFT + PIT_WIDTH / 2 - 30, -200, ENEMY_BAKER, difficulty);
+    printf("THE BAKER IS COMING! Spawned at (%.1f, %.1f)\n", baker->x, baker->y);
 
     // Generate side doors to Bomb Jack levels or shops
     // More doors appear as difficulty increases
@@ -466,6 +505,12 @@ void Game::cleanCurrentLevel()
         delete enemy;
     }
     enemies.clear();
+
+    if (baker)
+    {
+        delete baker;
+        baker = nullptr;
+    }
 
     for (auto *proj : projectiles)
     {
@@ -872,10 +917,28 @@ void Game::updateDownwell()
         cameraY = worldHeight - SCREEN_HEIGHT;
     }
 
-    // Update enemies and projectiles
+    // Update Enemies
     for (auto *enemy : enemies)
     {
         enemy->update(*player, platforms, &projectiles);
+    }
+
+    // UPDATE BAKER
+    if (baker)
+    {
+        baker->update(*player); // He ignores platforms
+        
+        // Baker Collision (INSTA-KILL or heavy damage)
+        if (baker->checkCollision(*player))
+        {
+            if (!player->isInvincible)
+            {
+                player->hearts = 0; // INSTA-DEATH
+                player->isDead = true;
+                printf("CAUGHT BY THE BAKER!\n");
+                endRun(false); // Game Over
+            }
+        }
     }
 
     for (auto *proj : projectiles)
@@ -883,6 +946,7 @@ void Game::updateDownwell()
         proj->update();
     }
 
+    // Clean up inactive projectiles logic moved into cleanProjectiles()
     checkProjectileCollisions();
     cleanProjectiles();
 
@@ -1250,13 +1314,15 @@ void Game::renderLobby()
     }
 
     // Recipe (The objective)
-    SDL_SetRenderDrawColor(renderer, 255, 215, 0, 255); // Gold
-    SDL_RenderFillRect(renderer, &recipeRect);
+    // SDL_SetRenderDrawColor(renderer, 255, 215, 0, 255); // Gold
+    // SDL_RenderFillRect(renderer, &recipeRect);
     
-    // Shine effect
-    SDL_SetRenderDrawColor(renderer, 255, 255, 200, 255);
-    SDL_Rect shine = {recipeRect.x + 5, recipeRect.y + 5, 5, 5};
-    SDL_RenderFillRect(renderer, &shine);
+    // // Shine effect
+    // SDL_SetRenderDrawColor(renderer, 255, 255, 200, 255);
+    // SDL_Rect shine = {recipeRect.x + 5, recipeRect.y + 5, 5, 5};
+    // SDL_RenderFillRect(renderer, &shine);
+
+    textureManager->renderTexture("recipe", recipeRect.x, recipeRect.y, recipeRect.w, recipeRect.h);
 
     if (playerNearRecipe)
     {
@@ -1291,7 +1357,23 @@ void Game::renderLobby()
         }
     }
 
-    player->render(renderer, false);
+    // Render Player using Sprite Sheet (32x32 tiles from Aseprite)
+    SDL_Rect playerRect = player->getRect();
+    
+    // Sprite positioning:
+    // Hitbox is 32x48. Sprite tile is 32x32.
+    // Actual sprite is 16x16 centered in the 32x32 tile.
+    // Feet should be at bottom of hitbox.
+    // Since sprite is centered in tile, we align the tile with the hitbox.
+    int spriteX = playerRect.x;
+    int spriteY = playerRect.y + playerRect.h - 32; // Align bottom of sprite tile with bottom of hitbox
+
+    SDL_Rect srcRect = player->getSpriteSrcRect();
+    SDL_RendererFlip flip = player->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+
+    textureManager->renderFrame("player", spriteX, spriteY, 
+                               srcRect.x, srcRect.y, 32, 32, 
+                               32, 32, flip);
 
     // Stats
     SDL_Color gold = {255, 215, 0, 255};
@@ -1448,43 +1530,91 @@ void Game::renderDownwell()
         }
     }
 
-    // cookies
+    // Draw Cookies
     for (auto *cookie : cookies)
     {
         if (!cookie->collected)
         {
-            SDL_Rect worldRect = cookie->getRect();
-            SDL_Rect screenRect = worldToScreen(worldRect);
-
-            if (screenRect.y + screenRect.h >= 0 && screenRect.y <= SCREEN_HEIGHT)
+            SDL_Rect screenRect = worldToScreen(cookie->getRect());
+            if (screenRect.y + screenRect.h > 0 && screenRect.y < SCREEN_HEIGHT)
             {
-                SDL_SetRenderDrawColor(renderer, 255, 200, 100, 255);
-                SDL_RenderFillRect(renderer, &screenRect);
+                textureManager->renderTexture("cookie", screenRect.x, screenRect.y, screenRect.w, screenRect.h);
             }
         }
     }
 
-    // enemies
+    // Draw Enemies
     for (auto *enemy : enemies)
     {
-        SDL_Rect worldRect = enemy->getRect();
-        SDL_Rect screenRect = worldToScreen(worldRect);
-
-        if (screenRect.y + screenRect.h >= 0 && screenRect.y <= SCREEN_HEIGHT)
+        SDL_Rect screenRect = worldToScreen(enemy->getRect());
+        if (screenRect.y + screenRect.h > 0 && screenRect.y < SCREEN_HEIGHT)
         {
-            // transform enemy position for camera
-            float savedY = enemy->y;
-            enemy->y = worldToScreenY(enemy->y);
-            enemy->render(renderer);
-            enemy->y = savedY;
+            SDL_RendererFlip flip = enemy->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+            textureManager->renderTexture("enemy", screenRect.x, screenRect.y, screenRect.w, screenRect.h, flip);
         }
     }
 
+    // Render THE BAKER
+    if (baker)
+    {
+        SDL_Rect screenRect = worldToScreen(baker->getRect());
+        // Always render him even if offscreen? No, waste of time.
+        if (screenRect.y + screenRect.h > -100 && screenRect.y < SCREEN_HEIGHT + 100)
+        {
+            // Use "enemy" sprite but maybe modify color or use a different one if we had it.
+            // For now, let's just make him big.
+             SDL_RendererFlip flip = baker->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+             
+             // Tint him red to show he is dangerous
+             SDL_SetTextureColorMod(textureManager->getTexture("enemy"), 255, 100, 100);
+             textureManager->renderTexture("enemy", screenRect.x, screenRect.y, screenRect.w, screenRect.h, flip);
+             SDL_SetTextureColorMod(textureManager->getTexture("enemy"), 255, 255, 255); // Reset
+        }
+    }
+    
+    // Draw Projectiles
+    // Default red projectiles for now (can map to a small sprite later)
+    SDL_SetRenderDrawColor(renderer, 255, 50, 50, 255);
     for (auto *proj : projectiles)
     {
-        proj->render(renderer, cameraY);
+        if (proj->active)
+        {
+            SDL_Rect screenRect = worldToScreen(proj->getRect());
+            SDL_RenderFillRect(renderer, &screenRect);
+        }
     }
 
+    // Draw Player
+    SDL_Rect worldPlayerRect = player->getRect();
+    SDL_Rect screenPlayerRect = worldToScreen(worldPlayerRect);
+    
+    // Sprite Rendering with 32x32 tiles
+    // Hitbox is (32x48). Sprite tile is (32x32).
+    // Actual sprite content is 16x16 centered in each tile.
+    int spriteX = screenPlayerRect.x;
+    int spriteY = screenPlayerRect.y + screenPlayerRect.h - 32;
+    
+    SDL_Rect srcRect = player->getSpriteSrcRect();
+    SDL_RendererFlip flip = player->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    
+    // Flash if invincible (color modulation)
+    if (player->isInvincible && !player->isDead) {
+         int blink = (int)(player->invincibilityTimer * 15) % 2;
+         if (blink) SDL_SetTextureColorMod(textureManager->getTexture("player"), 200, 200, 255); // Lighter tint
+         else SDL_SetTextureColorMod(textureManager->getTexture("player"), 255, 255, 255);
+    } else {
+         SDL_SetTextureColorMod(textureManager->getTexture("player"), 255, 255, 255);
+    }
+
+    textureManager->renderFrame("player", spriteX, spriteY, 
+                               srcRect.x, srcRect.y, 32, 32, // Source rect from sprite sheet
+                               32, 32, // Destination size
+                               flip);
+                               
+    // Reset Color Mod
+    SDL_SetTextureColorMod(textureManager->getTexture("player"), 255, 255, 255);
+
+    // player->render(renderer, false); // Disabled old render
     // side doors
     for (const auto &door : sideDoors)
     {
@@ -1563,6 +1693,8 @@ void Game::renderDownwell()
                 }
             }
 
+            /*
+            // Manual Player Rendering (Removed for Sprite)
             if (player->isGliding)
             {
                 SDL_SetRenderDrawColor(renderer, 191, 64, 191, 255);
@@ -1580,6 +1712,7 @@ void Game::renderDownwell()
             SDL_SetRenderDrawColor(renderer, 139, 69, 19, 255);
             SDL_Rect face = {playerScreenRect.x + 5, playerScreenRect.y + 5, 22, 15};
             SDL_RenderFillRect(renderer, &face);
+            */
 
             // glide bar
             int barWidth = 30;
@@ -1674,20 +1807,46 @@ void Game::renderBombJack()
 
     for (auto *cookie : cookies)
     {
-        cookie->render(renderer);
+        if (!cookie->collected)
+        {
+            textureManager->renderTexture("cookie", cookie->x, cookie->y, 
+                                        cookie->getRect().w, cookie->getRect().h);
+        }
     }
 
     for (auto *enemy : enemies)
     {
-        enemy->render(renderer);
+        SDL_RendererFlip flip = enemy->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+        
+        // Enemy sprites are also 32x32 tiles
+        textureManager->renderFrame("enemy", enemy->x, enemy->y + enemy->height - 32, 
+                                   enemy->currentFrame * 32, 0, 32, 32, 
+                                   32, 32, flip);
     }
 
     for (auto *proj : projectiles)
     {
-        proj->render(renderer);
+        if (proj->active)
+        {
+            SDL_Rect tick = proj->getRect();
+            SDL_SetRenderDrawColor(renderer, 255, 50, 50, 255);
+            SDL_RenderFillRect(renderer, &tick);
+        }
     }
 
-    player->render(renderer, true);
+    // Render Player with sprite sheet (32x32 tiles)
+    SDL_Rect pRect = player->getRect();
+    SDL_Rect srcRect = player->getSpriteSrcRect();
+    SDL_RendererFlip flip = player->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
+    
+    int spriteX = pRect.x;
+    int spriteY = pRect.y + pRect.h - 32;
+    
+    textureManager->renderFrame("player", spriteX, spriteY,
+                               srcRect.x, srcRect.y, 32, 32,
+                               32, 32, flip);
+    
+    // player->render(renderer, true);
 
     // cookie progress in bomb jack level
     if (currentBombJackLevel)

@@ -1,48 +1,4 @@
-#ifndef TEXTURE_MANAGER_H
-#define TEXTURE_MANAGER_H
-
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_image.h>
-#include <string>
-#include <map>
-
-class TextureManager
-{
-private:
-    std::map<std::string, SDL_Texture *> textures;
-    SDL_Renderer *renderer;
-
-public:
-    TextureManager();
-    ~TextureManager();
-
-    bool init(SDL_Renderer *ren);
-    void clean();
-
-    // Load a texture and store it with a name
-    bool loadTexture(const std::string &name, const std::string &filepath);
-
-    // Get a texture by name
-    SDL_Texture *getTexture(const std::string &name);
-
-    // Render a texture at position with optional scaling
-    void renderTexture(const std::string &name, int x, int y,
-                       int width = -1, int height = -1,
-                       SDL_RendererFlip flip = SDL_FLIP_NONE);
-
-    // Render a specific frame from a spritesheet
-    void renderFrame(const std::string &name, int x, int y,
-                     int frameX, int frameY, int frameWidth, int frameHeight,
-                     int destWidth = -1, int destHeight = -1,
-                     SDL_RendererFlip flip = SDL_FLIP_NONE);
-
-    // Render with rotation
-    void renderTextureEx(const std::string &name, int x, int y,
-                         int width, int height, double angle,
-                         SDL_RendererFlip flip = SDL_FLIP_NONE);
-};
-
-#endif
+#include "texturemanager.h"
 
 // ============================================================================
 // IMPLEMENTATION - texturemanager.cpp
@@ -80,12 +36,9 @@ bool TextureManager::init(SDL_Renderer *ren)
 void TextureManager::clean()
 {
     // Free all loaded textures
-    for (auto &pair : textures)
+    for (auto const &pair : textures)
     {
-        if (pair.second)
-        {
-            SDL_DestroyTexture(pair.second);
-        }
+        SDL_DestroyTexture(pair.second);
     }
     textures.clear();
 
@@ -184,4 +137,67 @@ void TextureManager::renderTextureEx(const std::string &name, int x, int y,
 
     SDL_Rect destRect = {x, y, width, height};
     SDL_RenderCopyEx(renderer, texture, NULL, &destRect, angle, NULL, flip);
+}
+
+bool TextureManager::createTextureFromMap(const std::string &name, 
+                             const std::vector<std::string> &pixelMap, 
+                             const std::map<char, SDL_Color> &palette,
+                             int scale)
+{
+    if (pixelMap.empty()) return false;
+    
+    int rows = pixelMap.size();
+    int cols = pixelMap[0].length();
+    
+    // Create a surface
+    SDL_Surface* surface = SDL_CreateRGBSurface(0, cols * scale, rows * scale, 32, 
+                                        0xFF000000, 0x00FF0000, 0x0000FF00, 0x000000FF);
+    
+    if (!surface) {
+        printf("Failed to create surface for %s! SDL_Error: %s\n", name.c_str(), SDL_GetError());
+        return false;
+    }
+
+    // Lock surface for manipulation
+    SDL_LockSurface(surface);
+    Uint32* pixels = (Uint32*)surface->pixels;
+    
+    // Fill with transparent initially
+    SDL_memset(pixels, 0, surface->h * surface->pitch);
+
+    // Draw pixels
+    for (int y = 0; y < rows; ++y) {
+        for (int x = 0; x < cols; ++x) {
+            char pixelChar = pixelMap[y][x];
+            if (pixelChar != ' ' && palette.find(pixelChar) != palette.end()) {
+                SDL_Color color = palette.at(pixelChar);
+                Uint32 mappedColor = SDL_MapRGBA(surface->format, color.r, color.g, color.b, color.a);
+                
+                // Draw scaled pixel
+                for (int sy = 0; sy < scale; ++sy) {
+                    for (int sx = 0; sx < scale; ++sx) {
+                        int destX = x * scale + sx;
+                        int destY = y * scale + sy;
+                        if (destX < surface->w && destY < surface->h) {
+                            pixels[destY * (surface->pitch / 4) + destX] = mappedColor;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    SDL_UnlockSurface(surface);
+
+    // Create texture from surface
+    SDL_Texture* texture = SDL_CreateTextureFromSurface(renderer, surface);
+    SDL_FreeSurface(surface);
+
+    if (!texture) {
+        printf("Failed to create texture from surface for %s! SDL_Error: %s\n", name.c_str(), SDL_GetError());
+        return false;
+    }
+
+    textures[name] = texture;
+    return true;
 }

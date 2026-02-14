@@ -20,6 +20,10 @@ Enemy::Enemy(float startX, float startY, EnemyType enemyType, int difficulty)
     alertLevel = 0.0f;
     isActive = false;
 
+    // Animation
+    animTimer = 0.0f;
+    currentFrame = 0;
+
     float enemyVariation = 0.8f + (rand() % 40) / 100.0f; // 0.8 - 1.2
 
     switch (type)
@@ -68,9 +72,15 @@ Enemy::Enemy(float startX, float startY, EnemyType enemyType, int difficulty)
         }
         aimTime = 0;
         isAiming = false;
-        hasFoundEdges = false;
         printf("ENEMY_SHOOTER created at (%.1f, %.1f) with shoot interval %.1fs\n",
                x, y, shootInterval);
+        break;
+
+    case ENEMY_BAKER:
+        width = 60; // Bigger than normal
+        height = 80;
+        speed = 1.5f + (difficulty * 0.1f); // Slower than falling player, but constant
+        // No gravity logic needed
         break;
     }
 
@@ -147,7 +157,32 @@ void Enemy::update(Player &player, const std::vector<Platform> &platforms, std::
         }
         applyGravity(platforms);
         break;
+
+    case ENEMY_BAKER:
+        updateBaker(player);
+        break;
     }
+}
+
+void Enemy::updateBaker(Player &player)
+{
+    // The Baker ignores platforms and gravity! He is a force of nature.
+    
+    // Constant downward movement
+    y += speed;
+
+    // Move horizontally towards player
+    float dx = player.x - x;
+    if (fabs(dx) > 5.0f) {
+        float moveSpeed = speed * 0.8f; // Move slower horizontally
+        x += (dx > 0 ? moveSpeed : -moveSpeed);
+    }
+
+    // Keep within bounds
+    if (x < 0) x = 0;
+    if (x + width > 600) x = 600 - width; // Assuming 600 width roughly
+
+    facingLeft = (dx < 0);
 }
 
 void Enemy::findPlatformEdges(const std::vector<Platform> &platforms)

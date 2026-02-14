@@ -1,1 +1,1 @@
-g++ -o CookieThief.exe main.cpp game.cpp player.cpp enemy.cpp cookie.cpp projectile.cpp TextManager.cpp LevelManager.cpp downwellgenerator.cpp gamerun.cpp -IC:/SDL2/include -LC:/SDL2/lib -lmingw32 -lSDL2main -lSDL2 -lSDL2_ttf
+g++ *.cpp -o CookieThief.exe $(sdl2-config --cflags --libs) -lSDL2_image -lSDL2_ttf
