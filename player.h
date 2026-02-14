@@ -30,15 +30,18 @@ public:
     float stompBounce;
 
     // Animation
-    // Aseprite sheet layout: 4 columns × 12 rows, 32x32 tiles
-    // Row 2 (index 1): Idle (2 frames)
-    // Row 5 (index 4): Walk (2 frames)
-    // Row 11 (index 10): Death/Faint (4 frames)
+    // Sprite sheet layout: 
+    // Row 0: Idle (2 frames)
+    // Row 1: Walk (4 frames)
+    // Row 2: Die/Faint (4 frames)
+    // Row 3: Jump (2 frames)
     enum AnimationState { IDLE, WALK, JUMP, FALL, GLIDE, DIE };
     AnimationState animState;
+    AnimationState previousAnimState; // Track state changes to reset frame
     float animTimer;
     int currentFrame;
-    bool facingLeft; // Track direction for flipping
+    int currentRow;      // Current sprite sheet row (set in updateAnimation)
+    bool facingLeft;     // Track direction for flipping
 
     void updateAnimation();
     SDL_Rect getSpriteSrcRect();

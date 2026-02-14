@@ -5,6 +5,21 @@
 const int SCREEN_WIDTH = 800;
 const int SCREEN_HEIGHT = 600;
 
+// Player sprite scaling and hitbox configuration
+const int PLAYER_SPRITE_SIZE = 32;        // Source sprite size from sprite sheet
+const int PLAYER_RENDER_SCALE = 3;        // Scale factor (3 = 96x96 rendered)
+const int PLAYER_RENDER_SIZE = PLAYER_SPRITE_SIZE * PLAYER_RENDER_SCALE; // 96x96
+
+// Hitbox offsets within the 32x32 sprite space (before scaling)
+const int HITBOX_LEFT_OFFSET = 10;   // Pixels from left edge
+const int HITBOX_RIGHT_OFFSET = 13;  // Pixels from right edge
+const int HITBOX_TOP_OFFSET = 10;    // Pixels from top edge
+const int HITBOX_BOTTOM_OFFSET = 9;  // Pixels from bottom edge (where feet are)
+
+// Calculated hitbox dimensions (scaled up by PLAYER_RENDER_SCALE)
+const int HITBOX_WIDTH = (PLAYER_SPRITE_SIZE - HITBOX_LEFT_OFFSET - HITBOX_RIGHT_OFFSET) * PLAYER_RENDER_SCALE;   // 9 * 3 = 27px
+const int HITBOX_HEIGHT = (PLAYER_SPRITE_SIZE - HITBOX_TOP_OFFSET - HITBOX_BOTTOM_OFFSET) * PLAYER_RENDER_SCALE; // 13 * 3 = 39px
+
 // Downwell pit dimensions
 const int PIT_WIDTH = 400;                           // The playable vertical shaft
 const int PIT_LEFT = (SCREEN_WIDTH - PIT_WIDTH) / 2; // 200

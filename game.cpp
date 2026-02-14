@@ -1357,23 +1357,21 @@ void Game::renderLobby()
         }
     }
 
-    // Render Player using Sprite Sheet (32x32 tiles from Aseprite)
-    SDL_Rect playerRect = player->getRect();
+    // Render Player using Sprite Sheet (32x32 source, scaled to 96x96)
+    SDL_Rect playerRect = player->getRect(); // This is the hitbox (27x39)
     
-    // Sprite positioning:
-    // Hitbox is 32x48. Sprite tile is 32x32.
-    // Actual sprite is 16x16 centered in the 32x32 tile.
-    // Feet should be at bottom of hitbox.
-    // Since sprite is centered in tile, we align the tile with the hitbox.
-    int spriteX = playerRect.x;
-    int spriteY = playerRect.y + playerRect.h - 32; // Align bottom of sprite tile with bottom of hitbox
+    // Calculate sprite position:
+    // The hitbox is offset within the sprite by the defined offsets (scaled)
+    // Sprite top-left = hitbox position - (left_offset * scale, top_offset * scale)
+    int spriteX = playerRect.x - (HITBOX_LEFT_OFFSET * PLAYER_RENDER_SCALE);
+    int spriteY = playerRect.y - (HITBOX_TOP_OFFSET * PLAYER_RENDER_SCALE);
 
     SDL_Rect srcRect = player->getSpriteSrcRect();
     SDL_RendererFlip flip = player->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
 
     textureManager->renderFrame("player", spriteX, spriteY, 
-                               srcRect.x, srcRect.y, 32, 32, 
-                               32, 32, flip);
+                               srcRect.x, srcRect.y, PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE, 
+                               PLAYER_RENDER_SIZE, PLAYER_RENDER_SIZE, flip);
 
     // Stats
     SDL_Color gold = {255, 215, 0, 255};
@@ -1585,14 +1583,19 @@ void Game::renderDownwell()
     }
 
     // Draw Player
-    SDL_Rect worldPlayerRect = player->getRect();
-    SDL_Rect screenPlayerRect = worldToScreen(worldPlayerRect);
+    // SDL_Rect worldPlayerRect = player->getRect();
+    // SDL_Rect screenPlayerRect = worldToScreen(worldPlayerRect);
     
-    // Sprite Rendering with 32x32 tiles
-    // Hitbox is (32x48). Sprite tile is (32x32).
-    // Actual sprite content is 16x16 centered in each tile.
-    int spriteX = screenPlayerRect.x;
-    int spriteY = screenPlayerRect.y + screenPlayerRect.h - 32;
+    // Sprite Rendering with 3x scaled sprites (32x32 source -> 96x96 rendered)
+    // Hitbox is (27x39). Sprite is (96x96).
+    // Hitbox is positioned within sprite based on offset constants
+    SDL_Rect playerRect = player->getRect(); // Hitbox in world space
+    SDL_Rect screenPlayerRect = worldToScreen(playerRect); // Hitbox in screen space
+    
+    // Calculate sprite position in screen space
+    // Sprite top-left = hitbox position - (left_offset * scale, top_offset * scale)
+    int spriteX = screenPlayerRect.x - (HITBOX_LEFT_OFFSET * PLAYER_RENDER_SCALE);
+    int spriteY = screenPlayerRect.y - (HITBOX_TOP_OFFSET * PLAYER_RENDER_SCALE);
     
     SDL_Rect srcRect = player->getSpriteSrcRect();
     SDL_RendererFlip flip = player->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
@@ -1607,8 +1610,8 @@ void Game::renderDownwell()
     }
 
     textureManager->renderFrame("player", spriteX, spriteY, 
-                               srcRect.x, srcRect.y, 32, 32, // Source rect from sprite sheet
-                               32, 32, // Destination size
+                               srcRect.x, srcRect.y, PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE, // Source rect from sprite sheet
+                               PLAYER_RENDER_SIZE, PLAYER_RENDER_SIZE, // Destination size (96x96)
                                flip);
                                
     // Reset Color Mod
@@ -1834,17 +1837,19 @@ void Game::renderBombJack()
         }
     }
 
-    // Render Player with sprite sheet (32x32 tiles)
-    SDL_Rect pRect = player->getRect();
+    // Render Player with sprite sheet (32x32 source -> 96x96 rendered)
+    SDL_Rect pRect = player->getRect(); // Hitbox (27x39)
     SDL_Rect srcRect = player->getSpriteSrcRect();
     SDL_RendererFlip flip = player->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
     
-    int spriteX = pRect.x;
-    int spriteY = pRect.y + pRect.h - 32;
+    // Calculate sprite position
+    // Sprite top-left = hitbox position - (left_offset * scale, top_offset * scale)
+    int spriteX = pRect.x - (HITBOX_LEFT_OFFSET * PLAYER_RENDER_SCALE);
+    int spriteY = pRect.y - (HITBOX_TOP_OFFSET * PLAYER_RENDER_SCALE);
     
     textureManager->renderFrame("player", spriteX, spriteY,
-                               srcRect.x, srcRect.y, 32, 32,
-                               32, 32, flip);
+                               srcRect.x, srcRect.y, PLAYER_SPRITE_SIZE, PLAYER_SPRITE_SIZE,
+                               PLAYER_RENDER_SIZE, PLAYER_RENDER_SIZE, flip);
     
     // player->render(renderer, true);
 

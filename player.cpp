@@ -7,8 +7,8 @@ Player::Player(float startX, float startY)
 {
     x = startX;
     y = startY;
-    width = 32;
-    height = 48;
+    width = HITBOX_WIDTH;   // 27px (9 * 3 scale)
+    height = HITBOX_HEIGHT; // 39px (13 * 3 scale)
     velocityX = 0;
     velocityY = 0;
     onGround = false;
@@ -30,89 +30,83 @@ Player::Player(float startX, float startY)
 
     // Animation
     animState = IDLE;
+    previousAnimState = IDLE;
     animTimer = 0.0f;
     currentFrame = 0;
+    currentRow = 0;
     facingLeft = false;
 }
 
 void Player::updateAnimation()
 {
     // 1. Determine State
+    AnimationState newState = animState; // Start with current state
+    
     if (isDead) {
-        animState = DIE;
+        newState = DIE;
     } else if (isGliding) {
-        animState = GLIDE;
+        newState = GLIDE;
     } else if (!onGround) {
         // Jump or Fall?
-        if (velocityY < 0) animState = JUMP;
-        else animState = JUMP; // Use jump frame for falling too, or maybe second frame of jump
+        if (velocityY < 0) newState = JUMP;
+        else newState = JUMP; // Use jump frame for falling too
     } else {
-        if (fabs(velocityX) > 0.1f) {
-            animState = WALK;
+        // Use higher threshold to avoid micro-movements triggering walk
+        if (fabs(velocityX) > 0.5f) {
+            newState = WALK;
         } else {
-            animState = IDLE;
+            newState = IDLE;
         }
     }
+    
+    // Reset animation if state changed
+    if (newState != animState) {
+        animState = newState;
+        currentFrame = 0;
+        animTimer = 0.0f;
+    }
 
-    // 2. Update Timer & Frame
-    animTimer += 1.0f / 60.0f; // Assuming 60 FPS update
-    float frameDuration = 0.2f; // Default 5 FPS
-
+    // 2. Set animation parameters based on state FIRST
+    // You control the row, numFrames, and frameDuration here
     int numFrames = 1;
-    int row = 0;
-
-    // Aseprite sheet mapping (4 columns × 12 rows):
-    // Row 2 (index 1): Idle - 2 frames
-    // Row 5 (index 4): Walk - 2 frames
-    // Row 11 (index 10): Death/Faint - 4 frames
-    // We'll use row 4 for jump/glide as well for now
+    float frameDuration = 0.2f; // Default
     
     switch (animState)
     {
     case IDLE:
-        numFrames = 2; row = 1; frameDuration = 0.5f; break;
+        numFrames = 2; currentRow = 0; frameDuration = 0.5f; break;  // 0.5s per frame = 1 second total for 2 frames
     case WALK:
-        numFrames = 2; row = 4; frameDuration = 0.15f; break;
+        numFrames = 4; currentRow = 1; frameDuration = 0.15f; break; // 0.15s per frame = 0.6s total for 4 frames
     case JUMP:
-        numFrames = 2; row = 4; frameDuration = 0.2f; break; // Use walk frames for jump
+        numFrames = 2; currentRow = 0; frameDuration = 0.2f; break;
     case DIE:
-        numFrames = 4; row = 10; frameDuration = 0.2f; break; // 4 frames for death
+        numFrames = 4; currentRow = 2; frameDuration = 0.2f; break;
     case GLIDE:
-        numFrames = 1; row = 1; break; // Use first idle frame for glide
+        numFrames = 6; currentRow = 3; frameDuration = 0.15; break;
     default: break;
     }
 
+    // 3. Update Timer & Frame (using the frameDuration set above)
+    animTimer += 1.0f / 60.0f; // Assuming 60 FPS update
+
     if (animTimer >= frameDuration)
     {
-        animTimer = 0;
+        animTimer -= frameDuration; // Preserve overflow time for smooth animation
         currentFrame = (currentFrame + 1) % numFrames;
         
         // Don't loop death animation
         if (animState == DIE && currentFrame == numFrames - 1) {
             currentFrame = numFrames - 1;
+            animTimer = 0; // Reset timer when death animation is locked
         }
     }
 }
 
 SDL_Rect Player::getSpriteSrcRect()
 {
-    int row = 0;
-    switch (animState) {
-        case IDLE: row = 1; break;  // Row 2 in Aseprite (index 1)
-        case WALK: row = 4; break;  // Row 5 in Aseprite (index 4)
-        case JUMP: row = 4; break;  // Use walk row for jump
-        case DIE:  row = 10; break; // Row 11 in Aseprite (index 10)
-        case GLIDE: row = 4; break; // Use walk row for glide
-        default: row = 1; break;
-    }
-    
-    // Fall logic: use 2nd frame of Walk row
-    if (animState == JUMP && velocityY > 0) {
-        // Let animation cycle naturally
-    }
-
-    // Return source rectangle (32x32 tiles)
-    return {currentFrame * SPRITE_SIZE, row * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE};
+    // currentRow is set in updateAnimation() based on the animation state
+    // This just returns the source rectangle for the current frame and row
+    return {currentFrame * SPRITE_SIZE, currentRow * SPRITE_SIZE, SPRITE_SIZE, SPRITE_SIZE};
 }
 
 void Player::jump()
@@ -346,36 +340,9 @@ void Player::render(SDL_Renderer *renderer, bool showBars)
         return; // Don't render if dead
     }
 
-    // Flash player when invincible (blink effect)
-    if (isInvincible)
-    {
-        // Blink every 0.1 seconds
-        int blinkInterval = (int)(invincibilityTimer * 10) % 2;
-        if (blinkInterval == 0)
-        {
-            return; // Skip rendering this frame to create blink effect
-        }
-    }
-
-    if (isGliding)
-    {
-        SDL_SetRenderDrawColor(renderer, 191, 64, 191, 255);
-    }
-    else
-    {
-        SDL_SetRenderDrawColor(renderer, 112, 41, 99, 255);
-    }
-    SDL_Rect playerRect = getRect();
-    SDL_RenderFillRect(renderer, &playerRect);
-
-    // Draw Neesa more human for test
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_Rect hair = {(int)x, (int)y, (int)width, (int)height / 3}; // Full width, 1/3 height, at top
-    SDL_RenderFillRect(renderer, &hair);
-
-    SDL_SetRenderDrawColor(renderer, 139, 69, 19, 255);
-    SDL_Rect face = {(int)x + 5, (int)y + 5, 22, 15};
-    SDL_RenderFillRect(renderer, &face);
+    // NOTE: Invincibility blink is handled in game.cpp via color modulation
+    // NOTE: Player sprite rendering is now handled in game.cpp
+    // This function only handles the energy/glide bars
 
     // Only show bars if requested (hide in lobby)
     if (!showBars)
