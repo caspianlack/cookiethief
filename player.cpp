@@ -35,6 +35,8 @@ Player::Player(float startX, float startY)
     currentFrame = 0;
     currentRow = 0;
     facingLeft = false;
+    deathTimer = 0.0f;
+    deathFadeAlpha = 0.0f;
 }
 
 void Player::updateAnimation()
@@ -107,12 +109,13 @@ void Player::updateAnimation()
     if (animTimer >= frameDuration)
     {
         animTimer -= frameDuration; // Preserve overflow time for smooth animation
-        currentFrame = (currentFrame + 1) % numFrames;
         
-        // Don't loop death animation
-        if (animState == DIE && currentFrame == numFrames - 1) {
+        // Don't loop death animation - hold on last frame
+        if (animState == DIE && currentFrame >= numFrames - 1) {
             currentFrame = numFrames - 1;
             animTimer = 0; // Reset timer when death animation is locked
+        } else {
+            currentFrame = (currentFrame + 1) % numFrames;
         }
     }
 }
@@ -230,6 +233,8 @@ void Player::loseHeart()
     {
         hearts = 0;
         isDead = true;
+        deathTimer = 0.0f;  // Start death animation timer
+        deathFadeAlpha = 0.0f;  // Start with no overlay
         // printf("Player died! Game Over\n");
     }
     else
@@ -263,6 +268,23 @@ void Player::update()
 {
     if (isDead)
     {
+        // Update death timer and animation
+        deathTimer += 1.0f / FPS;
+        updateAnimation();  // Continue animating during death
+        
+        // Start fading in the death overlay after animation plays for a bit
+        // Death animation is 4 frames * 0.2s = 0.8s total
+        // Wait 0.8s for animation, then fade in over 1 second
+        const float FADE_START_TIME = 0.8f;
+        const float FADE_DURATION = 1.0f;
+        
+        if (deathTimer > FADE_START_TIME)
+        {
+            float fadeProgress = (deathTimer - FADE_START_TIME) / FADE_DURATION;
+            if (fadeProgress > 1.0f) fadeProgress = 1.0f;
+            deathFadeAlpha = fadeProgress * 200.0f;  // Max alpha of 200 (semi-transparent)
+        }
+        
         return;
     }
 

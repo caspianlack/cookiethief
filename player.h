@@ -42,6 +42,10 @@ public:
     int currentFrame;
     int currentRow;      // Current sprite sheet row (set in updateAnimation)
     bool facingLeft;     // Track direction for flipping
+    
+    // Death animation timing
+    float deathTimer;    // Time since death occurred
+    float deathFadeAlpha; // Alpha for death screen overlay (0-255)
 
     void updateAnimation();
     SDL_Rect getSpriteSrcRect();

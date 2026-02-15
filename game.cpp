@@ -460,6 +460,9 @@ void Game::endRun(bool victory)
     }
 
     currentRun->endRun();
+    if (!victory) {
+        previousState = currentState;  // Save state to render underneath death overlay
+    }
     currentState = victory ? STATE_RUN_COMPLETE : STATE_GAME_OVER;
 }
 
@@ -877,10 +880,13 @@ void Game::updateBombJack()
         return;
     }
 
-    // Death check
+    // Death check - wait for death animation and fade to complete
     if (player->isDead)
     {
-        endRun(false);
+        if (player->deathTimer >= 2.0f)
+        {
+            endRun(false);
+        }
     }
 }
 
@@ -971,10 +977,15 @@ void Game::updateDownwell()
         currentRun->getStats().distanceFell += (int)(player->y - oldY);
     }
 
-    // Death check
+    // Death check - wait for death animation and fade to complete before ending run
     if (player->isDead)
     {
-        endRun(false);
+        // Death animation is 0.8s, fade is 1s = 1.8s total
+        // Add a small buffer, call endRun after 2 seconds
+        if (player->deathTimer >= 2.0f)
+        {
+            endRun(false);
+        }
     }
 }
 
@@ -1299,6 +1310,17 @@ void Game::render()
     }
     else if (currentState == STATE_GAME_OVER)
     {
+        // Render the game world underneath (from previousState)
+        if (previousState == STATE_DOWNWELL)
+        {
+            renderDownwell();
+        }
+        else if (previousState == STATE_BOMB_JACK)
+        {
+            renderBombJack();
+        }
+        
+        // Then render the death overlay on top
         renderGameOver();
     }
 
@@ -1982,13 +2004,25 @@ void Game::renderRunComplete()
 
 void Game::renderGameOver()
 {
-    SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-    SDL_RenderClear(renderer);
+    // Draw semi-transparent black overlay (fades in based on player's death timer)
+    Uint8 overlayAlpha = (Uint8)player->deathFadeAlpha;
+    
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+    SDL_SetRenderDrawColor(renderer, 0, 0, 0, overlayAlpha);
+    SDL_Rect fullScreen = {0, 0, SCREEN_WIDTH, SCREEN_HEIGHT};
+    SDL_RenderFillRect(renderer, &fullScreen);
+    SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
+    
+    // Only show text when overlay is mostly visible
+    if (overlayAlpha < 100) return;
+    
+    // Calculate text alpha based on overlay alpha (fade in with overlay)
+    Uint8 textAlpha = overlayAlpha > 200 ? 255 : (Uint8)((overlayAlpha / 200.0f) * 255);
 
-    SDL_Color red = {255, 50, 50, 255};
+    SDL_Color red = {255, 50, 50, textAlpha};
     textManager->renderText(renderer, "CAUGHT!", "title", SCREEN_WIDTH / 2, 80, red, true);
 
-    SDL_Color white = {255, 255, 255, 255};
+    SDL_Color white = {255, 255, 255, textAlpha};
     RunStats &stats = currentRun->getStats();
 
     int y = 180;
@@ -2005,7 +2039,7 @@ void Game::renderGameOver()
     sprintf(text, "Distance Fell: %d", stats.distanceFell);
     textManager->renderText(renderer, text, "normal", SCREEN_WIDTH / 2, y, white, true);
 
-    SDL_Color hint = {200, 200, 200, 255};
+    SDL_Color hint = {200, 200, 200, textAlpha};
     textManager->renderText(renderer, "Press R to return to lobby", "small",
                             SCREEN_WIDTH / 2, SCREEN_HEIGHT - 60, hint, true);
 }
@@ -2072,12 +2106,7 @@ void Game::run()
         frameStart = SDL_GetTicks();
 
         handleEvents();
-
-        if (!player->isDead || currentState == STATE_LOBBY)
-        {
-            update();
-        }
-
+        update();
         render();
 
         frameTime = SDL_GetTicks() - frameStart;
