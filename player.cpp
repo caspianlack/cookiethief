@@ -74,11 +74,21 @@ void Player::updateAnimation()
         }
     }
     
-    // Reset animation if state changed
+    
+    // Reset animation if state changed (except for FALL <-> GLIDE transitions)
     if (newState != animState) {
+        // Check if transitioning between FALL and GLIDE (hair animations are synced)
+        bool isFallGlideTransition = (animState == FALL && newState == GLIDE) || 
+                                      (animState == GLIDE && newState == FALL);
+        
         animState = newState;
-        currentFrame = 0;
-        animTimer = 0.0f;
+        
+        // Only reset frame if NOT transitioning between FALL and GLIDE
+        if (!isFallGlideTransition) {
+            currentFrame = 0;
+            animTimer = 0.0f;
+        }
+        // For FALL <-> GLIDE transitions, keep the current frame for smooth transition
     }
 
     // 2. Set animation parameters based on state FIRST
