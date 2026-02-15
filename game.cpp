@@ -941,8 +941,10 @@ void Game::updateDownwell()
             {
                 player->hearts = 0; // INSTA-DEATH
                 player->isDead = true;
+                player->deathTimer = 0.0f;  // Start death animation timer
+                player->deathFadeAlpha = 0.0f;  // Start with no overlay
                 printf("CAUGHT BY THE BAKER!\n");
-                endRun(false); // Game Over
+                // Don't call endRun here - let the death timer handle it
             }
         }
     }

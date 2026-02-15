@@ -272,6 +272,16 @@ void Player::update()
         deathTimer += 1.0f / FPS;
         updateAnimation();  // Continue animating during death
         
+        // Apply gravity so player falls if dead in mid-air
+        velocityY += GRAVITY;
+        if (velocityY > MAX_FALL_SPEED)
+        {
+            velocityY = MAX_FALL_SPEED;
+        }
+        
+        // Update position
+        y += velocityY;
+        
         // Start fading in the death overlay after animation plays for a bit
         // Death animation is 4 frames * 0.2s = 0.8s total
         // Wait 0.8s for animation, then fade in over 1 second
