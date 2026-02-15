@@ -47,11 +47,24 @@ void Player::updateAnimation()
     } else if (isGliding) {
         newState = GLIDE;
     } else if (!onGround) {
-        // Jump or Fall?
-        if (velocityY < 0) newState = JUMP;
-        else newState = JUMP; // Use jump frame for falling too
+        // If we're moving slowly and falling slowly, we're probably still on ground
+        // (collision resolution can briefly set onGround to false)
+        // Only switch to FALL if we're actually falling with significant downward velocity
+        if (velocityY < 0) {
+            newState = JUMP;
+        } else if (velocityY < 5.0f) {
+            // Falling slowly - maintain current ground-based animation state
+            if (fabs(velocityX) > 0.5f) {
+                newState = WALK;
+            } else {
+                newState = IDLE;
+            }
+        } else {
+            // Actually falling with significant velocity
+            newState = FALL;
+        }
     } else {
-        // Use higher threshold to avoid micro-movements triggering walk
+        // On ground - check horizontal movement
         if (fabs(velocityX) > 0.5f) {
             newState = WALK;
         } else {
@@ -82,7 +95,9 @@ void Player::updateAnimation()
     case DIE:
         numFrames = 4; currentRow = 2; frameDuration = 0.2f; break;
     case GLIDE:
-        numFrames = 6; currentRow = 3; frameDuration = 0.15; break;
+        numFrames = 6; currentRow = 3; frameDuration = 0.2; break;
+    case FALL:
+        numFrames = 6; currentRow = 4; frameDuration = 0.1f; break;
     default: break;
     }
 
