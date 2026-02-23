@@ -13,7 +13,7 @@ enum EnemyType
     ENEMY_PATROL, // Frying pan - patrols platform edges
     ENEMY_JUMPER, // Rolling pin - chases and jumps at player
     ENEMY_SHOOTER, // Wooden spoon - shoots projectiles from platform edges
-    ENEMY_BAKER   // The Boss - chases player down the hole
+    ENEMY_BAKER   // The Arch-Baker - chases player down the hole
 };
 
 class Enemy

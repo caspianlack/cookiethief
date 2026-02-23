@@ -3,3 +3,4 @@
 *.o
 .vscode/
 test.cpp
+checklist.md

@@ -166,7 +166,7 @@ void Enemy::update(Player &player, const std::vector<Platform> &platforms, std::
 
 void Enemy::updateBaker(Player &player)
 {
-    // The Baker ignores platforms and gravity! He is a force of nature.
+    // The Arch-Baker ignores platforms and gravity! He is a force of nature.
     
     // Constant downward movement
     y += speed;
@@ -452,7 +452,7 @@ void Enemy::updateJumper(Player &player, const std::vector<Platform> &platforms)
         hasLostPlayer = false;
         isRetreating = false;
         retreatTimer = 0;
-        printf("Baker woke up! Chase begins!\n");
+        printf("The Arch-Baker woke up! The chase begins!\n");
     }
 
     if (isSleeping)
