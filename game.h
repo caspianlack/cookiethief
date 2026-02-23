@@ -141,6 +141,7 @@ private:
     void applyUpgradesToPlayer();
     void renderDownwellWalls();
     void renderSideStats();
+    void renderTexturedPlatform(const Platform& platform);
 
     void checkProjectileCollisions();
     void cleanProjectiles();

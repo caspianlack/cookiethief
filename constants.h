@@ -113,4 +113,14 @@ const float JUMPER_LOST_PLAYER_TIME = 2.0f; // Time before giving up when player
 const int FPS = 60;
 const int FRAME_DELAY = 1000 / FPS;
 
+// Tileset constants
+const int TILE_SIZE = 8;
+const int PLATFORM_RENDER_SCALE = PLAYER_RENDER_SCALE; // Match player scale (3x)
+const int PLATFORM_TILE_SIZE = TILE_SIZE * PLATFORM_RENDER_SCALE; // 24px
+
+const int PLATFORM_TILE_DARK = 0;
+const int PLATFORM_TILE_MILK = 1;
+const int PLATFORM_TILE_WHITE = 2;
+const int PLATFORM_TILE_EMPTY = 3;
+
 #endif

@@ -121,7 +121,8 @@ bool Game::init()
     // Items
     textureManager->loadTexture("cookie", "assets/cookie.png");
     textureManager->loadTexture("recipe", "assets/recipe.png");
-    textureManager->loadTexture("platform", "assets/platform.png"); // If we want textured platforms later
+    textureManager->loadTexture("platform", "assets/CookieThiefTileset.png"); // Use the new tileset for platforms
+    textureManager->loadTexture("platform_tileset", "assets/CookieThiefTileset.png");
 
     // Load fonts at different sizes for UI hierarchy
     textManager->loadFont("title", "PressStart2P.ttf", 32);
@@ -155,8 +156,8 @@ void Game::loadLobby()
     cleanCurrentLevel();
 
     // Create simple lobby platforms
-    platforms.push_back({0, 550, 800, 50, {100, 100, 100, 255}}); // Ground
-    platforms.push_back({300, 450, 200, 20, {139, 69, 19, 255}}); // Center platform
+    platforms.push_back({0, 550, 800, 50, {100, 100, 100, 255}, PLATFORM_DARK}); // Ground
+    platforms.push_back({300, 450, 200, 20, {139, 69, 19, 255}, (PlatformType)(rand() % 3)}); // Center platform
 
     player->reset(400, 400);
     cameraY = 0;
@@ -235,18 +236,19 @@ void Game::generateDownwellSegment()
         Platform alcove;
         if (onLeftWall)
         {
-            alcove.x = PIT_LEFT - 60;
-            alcove.width = 90;
+            alcove.x = PIT_LEFT - 72;
+            alcove.width = 96;
         }
         else
         {
-            alcove.x = PIT_RIGHT - 30;
-            alcove.width = 90;
+            alcove.x = PIT_RIGHT - 24;
+            alcove.width = 96;
         }
 
         alcove.y = door.worldY;
-        alcove.height = 20;
+        alcove.height = (float)PLATFORM_TILE_SIZE;
         alcove.color = {80, 60, 40, 255};
+        alcove.type = (PlatformType)(rand() % 3);
 
         platforms.push_back(alcove);
 
@@ -1334,7 +1336,7 @@ void Game::renderLobby()
     // Platforms
     for (const auto &platform : platforms)
     {
-        platform.render(renderer);
+        renderTexturedPlatform(platform);
     }
 
     // Recipe (The objective)
@@ -1541,15 +1543,10 @@ void Game::renderDownwell()
     // NOW RENDER
 
     // platforms
+    // platforms
     for (const auto &platform : platforms)
     {
-        SDL_Rect screenRect = worldToScreen(platform.getRect());
-
-        if (screenRect.y + screenRect.h >= 0 && screenRect.y <= SCREEN_HEIGHT)
-        {
-            SDL_SetRenderDrawColor(renderer, platform.color.r, platform.color.g, platform.color.b, platform.color.a);
-            SDL_RenderFillRect(renderer, &screenRect);
-        }
+        renderTexturedPlatform(platform);
     }
 
     // Draw Cookies
@@ -1829,7 +1826,7 @@ void Game::renderBombJack()
 {
     for (const auto &platform : platforms)
     {
-        platform.render(renderer);
+        renderTexturedPlatform(platform);
     }
 
     for (auto *cookie : cookies)
@@ -2073,6 +2070,58 @@ void Game::renderHearts()
         SDL_RenderDrawRect(renderer, &heart);
     }
 }
+
+void Game::renderTexturedPlatform(const Platform& platform)
+{
+    SDL_Rect screenRect = worldToScreen(platform.getRect());
+    
+    // Check if offscreen
+    if (screenRect.y + screenRect.h < 0 || screenRect.y > SCREEN_HEIGHT) return;
+
+    // Determine the source X for the chocolate block
+    int tileSrcX = (int)platform.type * TILE_SIZE;
+    int tileSrcY = 0; // First row is solid blocks
+    
+    // Number of tiles horizontally and vertically
+    int numTilesX = (int)ceil(platform.width / (float)PLATFORM_TILE_SIZE);
+    int numTilesY = (int)ceil(platform.height / (float)PLATFORM_TILE_SIZE);
+    
+    for (int ty = 0; ty < numTilesY; ty++) {
+        for (int tx = 0; tx < numTilesX; tx++) {
+            int drawX = screenRect.x + tx * PLATFORM_TILE_SIZE;
+            int drawY = screenRect.y + ty * PLATFORM_TILE_SIZE;
+            
+            // Calculate source and destination dimensions (handle partial tiles at edges if any remains)
+            int destW = PLATFORM_TILE_SIZE;
+            int destH = PLATFORM_TILE_SIZE;
+            
+            if ((tx + 1) * PLATFORM_TILE_SIZE > platform.width) 
+                destW = (int)platform.width - tx * PLATFORM_TILE_SIZE;
+            if ((ty + 1) * PLATFORM_TILE_SIZE > platform.height) 
+                destH = (int)platform.height - ty * PLATFORM_TILE_SIZE;
+            
+            // Scale source rect accordingly if dest is partial
+            int srcW = (int)ceil(destW / (float)PLATFORM_RENDER_SCALE);
+            int srcH = (int)ceil(destH / (float)PLATFORM_RENDER_SCALE);
+
+            if (destW > 0 && destH > 0) {
+                // Render the solid chocolate block
+                textureManager->renderFrame("platform_tileset", drawX, drawY,
+                                           tileSrcX, tileSrcY, srcW, srcH,
+                                           destW, destH);
+                
+                // Add cracks
+                if ((tx + ty + (int)platform.x) % 7 == 0) {
+                    int crackIdx = (tx + (int)platform.y) % 4;
+                    textureManager->renderFrame("platform_tileset", drawX, drawY,
+                                               crackIdx * TILE_SIZE, TILE_SIZE, srcW, srcH,
+                                               destW, destH);
+                }
+            }
+        }
+    }
+}
+
 
 void Game::renderUI()
 {

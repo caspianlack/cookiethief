@@ -91,6 +91,9 @@ void DownwellGenerator::generatePlatformCluster(DownwellSegment &segment, float 
             float offsetY = randomFloat(-60, 60);
 
             width = randomInt(90, 130);
+            width = (width / PLATFORM_TILE_SIZE) * PLATFORM_TILE_SIZE;
+            if (width < PLATFORM_TILE_SIZE) width = PLATFORM_TILE_SIZE;
+
             x = clusterCenterX + offsetX - width / 2;
             y = centerY + offsetY + (i * 80);
 
@@ -100,7 +103,7 @@ void DownwellGenerator::generatePlatformCluster(DownwellSegment &segment, float 
             if (x + width > PIT_RIGHT - 20)
                 x = PIT_RIGHT - 20 - width;
 
-            SDL_Rect newPlat = {(int)x, (int)y, width, 20};
+            SDL_Rect newPlat = {(int)x, (int)y, width, PLATFORM_TILE_SIZE};
 
             // Check overlap with other platforms
             validPosition = true;
@@ -129,7 +132,8 @@ void DownwellGenerator::generatePlatformCluster(DownwellSegment &segment, float 
             continue; // Skip if no suitable position found
 
         SDL_Color color = getPlatformColor(centerY / segment.segmentHeight, 0);
-        segment.platforms.push_back({x, y, (float)width, 20.0f, color});
+        PlatformType pType = (PlatformType)randomInt(0, 2);
+        segment.platforms.push_back({x, y, (float)width, (float)PLATFORM_TILE_SIZE, color, pType});
         placedPlatforms.push_back({(int)x, (int)y, width, 20});
 
         // Occasionally place a cookie on the platform
@@ -148,8 +152,8 @@ void DownwellGenerator::createSafeZone(DownwellSegment &segment, float zoneY)
 
     // Create a wide, safe platform
     float safeX = PIT_LEFT + 50;
-    float safeWidth = 300.0f;
-    segment.platforms.push_back({safeX, zoneY, safeWidth, 25.0f, {100, 200, 100, 255}}); // Green = safety area
+    float safeWidth = 312.0f; // Multiples of 24 (24 * 13)
+    segment.platforms.push_back({safeX, zoneY, safeWidth, (float)PLATFORM_TILE_SIZE, {100, 200, 100, 255}, PLATFORM_MILK}); // Green = safety area
 
     // Add healing cookies
     segment.cookies.push_back(new Cookie(safeX + 100, zoneY - 25));
@@ -230,6 +234,8 @@ void DownwellGenerator::generateSection(DownwellSegment &segment, SectionType ty
     while (currentY < startY + sectionHeight)
     {
         int width = randomInt(minWidth, maxWidth);
+        width = (width / PLATFORM_TILE_SIZE) * PLATFORM_TILE_SIZE;
+        if (width < PLATFORM_TILE_SIZE) width = PLATFORM_TILE_SIZE;
 
         int margin = 20;
         int minX = PIT_LEFT + margin;
@@ -276,7 +282,8 @@ void DownwellGenerator::generateSection(DownwellSegment &segment, SectionType ty
         }
 
         SDL_Color color = getPlatformColor(segmentProgress, nearbyEnemies);
-        Platform platform = {(float)x, currentY, (float)width, 20.0f, color};
+        PlatformType pType = (PlatformType)randomInt(0, 2);
+        Platform platform = {(float)x, currentY, (float)width, (float)PLATFORM_TILE_SIZE, color, pType};
         segment.platforms.push_back(platform);
 
         lastPlatformY = currentY;
@@ -412,7 +419,7 @@ void DownwellGenerator::addBridgePlatforms(DownwellSegment &segment)
 
             if (needsBridge)
             {
-                float bridgeWidth = 80.0f;
+                float bridgeWidth = (float)(PLATFORM_TILE_SIZE * 3); // 72px bridge
                 if (bridgeX < PIT_LEFT + 20)
                     bridgeX = PIT_LEFT + 20;
                 if (bridgeX + bridgeWidth > PIT_RIGHT - 20)
@@ -421,7 +428,8 @@ void DownwellGenerator::addBridgePlatforms(DownwellSegment &segment)
                 }
 
                 SDL_Color bridgeColor = {120, 100, 150, 255};
-                Platform bridge = {bridgeX, midY, bridgeWidth, 15.0f, bridgeColor};
+                PlatformType pType = (PlatformType)randomInt(0, 2);
+                Platform bridge = {bridgeX, midY, bridgeWidth, (float)PLATFORM_TILE_SIZE, bridgeColor, pType};
 
                 // Skip if overlapping with an existing platform
                 bool overlapsExisting = false;
@@ -468,33 +476,38 @@ void DownwellGenerator::createFloorWithHole(DownwellSegment &segment)
     printf("  Creating floor with exit hole at bottom\n");
 
     float floorY = segment.segmentHeight - 50;
-    float holeWidth = 120.0f;
+    float holeWidth = (float)(PLATFORM_TILE_SIZE * 5); // 120px
     float holeCenterX = PIT_LEFT + PIT_WIDTH / 2;
 
     // Left floor section
     float leftFloorX = PIT_LEFT;
     float leftFloorWidth = (holeCenterX - holeWidth / 2) - PIT_LEFT;
+    leftFloorWidth = (float)((int)(leftFloorWidth / PLATFORM_TILE_SIZE) * PLATFORM_TILE_SIZE);
 
     if (leftFloorWidth > 20)
     {
         segment.platforms.push_back({leftFloorX,
                                      floorY,
                                      leftFloorWidth,
-                                     200.0f,
-                                     {60, 60, 60, 255}});
+                                     240.0f, // Thicker floor (multiples of 24)
+                                     {60, 60, 60, 255},
+                                     PLATFORM_DARK});
     }
 
     // Right floor section
     float rightFloorX = holeCenterX + holeWidth / 2;
     float rightFloorWidth = PIT_RIGHT - rightFloorX;
+    rightFloorWidth = (float)((int)(rightFloorWidth / PLATFORM_TILE_SIZE) * PLATFORM_TILE_SIZE);
+    rightFloorX = PIT_RIGHT - rightFloorWidth; // Align to right wall
 
     if (rightFloorWidth > 20)
     {
         segment.platforms.push_back({rightFloorX,
                                      floorY,
                                      rightFloorWidth,
-                                     200.0f,
-                                     {60, 60, 60, 255}});
+                                     240.0f, // Thicker floor
+                                     {60, 60, 60, 255},
+                                     PLATFORM_DARK});
     }
 
     printf("  Floor created with hole at X=%.1f, Width=%.1f\n",

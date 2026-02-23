@@ -81,13 +81,13 @@ LevelData LevelManager::createLobby()
     lobby.playerStartY = 100;
     lobby.requiredCookies = 0;
 
-    lobby.platforms.push_back({0, 550, 800, 50, {100, 100, 100, 255}});
+    lobby.platforms.push_back({0, 552, 800, 48, {100, 100, 100, 255}, PLATFORM_DARK});
 
-    lobby.platforms.push_back({50, 450, 150, 20, {139, 69, 19, 255}});
+    lobby.platforms.push_back({48, 456, 144, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
 
-    lobby.platforms.push_back({300, 400, 200, 20, {139, 69, 19, 255}});
+    lobby.platforms.push_back({312, 408, 192, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
 
-    lobby.platforms.push_back({600, 450, 150, 20, {139, 69, 19, 255}});
+    lobby.platforms.push_back({600, 456, 144, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
 
     return lobby;
 }
@@ -103,42 +103,46 @@ LevelData LevelManager::createLevel1()
     level.requiredCookies = 5;
 
     // CREATE CENTERED BOX BOUNDARY
-    int wallThickness = 15;
+    int wallThickness = 24;
 
     // Floor
     level.platforms.push_back({(float)ARENA_LEFT,
                                (float)(ARENA_TOP + ARENA_HEIGHT - wallThickness),
                                (float)ARENA_WIDTH,
                                (float)wallThickness,
-                               {80, 80, 80, 255}});
+                               {80, 80, 80, 255},
+                               PLATFORM_DARK});
 
     // Ceiling
     level.platforms.push_back({(float)ARENA_LEFT,
                                (float)ARENA_TOP,
                                (float)ARENA_WIDTH,
                                (float)wallThickness,
-                               {80, 80, 80, 255}});
+                               {80, 80, 80, 255},
+                               PLATFORM_DARK});
 
     // Left
     level.platforms.push_back({(float)ARENA_LEFT,
                                (float)ARENA_TOP,
                                (float)wallThickness,
                                (float)ARENA_HEIGHT,
-                               {80, 80, 80, 255}});
+                               {80, 80, 80, 255},
+                               PLATFORM_DARK});
 
     // Right
     level.platforms.push_back({(float)(ARENA_LEFT + ARENA_WIDTH - wallThickness),
                                (float)ARENA_TOP,
                                (float)wallThickness,
                                (float)ARENA_HEIGHT,
-                               {80, 80, 80, 255}});
+                               {80, 80, 80, 255},
+                               PLATFORM_DARK});
 
     // platforms
-    level.platforms.push_back({ARENA_LEFT + 80, ARENA_TOP + 400, 120, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 300, ARENA_TOP + 350, 120, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 100, ARENA_TOP + 250, 150, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 320, ARENA_TOP + 200, 120, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 80, ARENA_TOP + 100, 140, 15, {139, 69, 19, 255}});
+    level.platforms.push_back({ARENA_LEFT + 72, ARENA_TOP + 408, 120, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 288, ARENA_TOP + 360, 120, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 96, ARENA_TOP + 264, 144, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 312, ARENA_TOP + 216, 120, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 72, ARENA_TOP + 96, 144, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
 
     // cookies
     level.cookies.push_back(new Cookie(ARENA_LEFT + 130, ARENA_TOP + 370));
@@ -161,24 +165,24 @@ LevelData LevelManager::createLevel2()
     level.playerStartY = ARENA_TOP + 80;
     level.requiredCookies = 7;
 
-    int wallThickness = 15;
+    int wallThickness = 24;
 
-    level.platforms.push_back({(float)ARENA_LEFT, (float)(ARENA_TOP + ARENA_HEIGHT - wallThickness), (float)ARENA_WIDTH, (float)wallThickness, {80, 80, 80, 255}});
-    level.platforms.push_back({(float)ARENA_LEFT, (float)ARENA_TOP, (float)ARENA_WIDTH, (float)wallThickness, {80, 80, 80, 255}});
-    level.platforms.push_back({(float)ARENA_LEFT, (float)ARENA_TOP, (float)wallThickness, (float)ARENA_HEIGHT, {80, 80, 80, 255}});
-    level.platforms.push_back({(float)(ARENA_LEFT + ARENA_WIDTH - wallThickness), (float)ARENA_TOP, (float)wallThickness, (float)ARENA_HEIGHT, {80, 80, 80, 255}});
+    level.platforms.push_back({(float)ARENA_LEFT, (float)(ARENA_TOP + ARENA_HEIGHT - wallThickness), (float)ARENA_WIDTH, (float)wallThickness, {80, 80, 80, 255}, PLATFORM_DARK});
+    level.platforms.push_back({(float)ARENA_LEFT, (float)ARENA_TOP, (float)ARENA_WIDTH, (float)wallThickness, {80, 80, 80, 255}, PLATFORM_DARK});
+    level.platforms.push_back({(float)ARENA_LEFT, (float)ARENA_TOP, (float)wallThickness, (float)ARENA_HEIGHT, {80, 80, 80, 255}, PLATFORM_DARK});
+    level.platforms.push_back({(float)(ARENA_LEFT + ARENA_WIDTH - wallThickness), (float)ARENA_TOP, (float)wallThickness, (float)ARENA_HEIGHT, {80, 80, 80, 255}, PLATFORM_DARK});
 
     // platforms
-    level.platforms.push_back({ARENA_LEFT + 50, ARENA_TOP + 450, 100, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 200, ARENA_TOP + 400, 100, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 350, ARENA_TOP + 450, 100, 15, {139, 69, 19, 255}});
+    level.platforms.push_back({ARENA_LEFT + 48,  ARENA_TOP + 456, 96,  24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 192, ARENA_TOP + 408, 96,  24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 360, ARENA_TOP + 456, 96,  24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
 
-    level.platforms.push_back({ARENA_LEFT + 80, ARENA_TOP + 300, 100, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 280, ARENA_TOP + 250, 120, 15, {139, 69, 19, 255}});
+    level.platforms.push_back({ARENA_LEFT + 72,  ARENA_TOP + 312, 96,  24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 288, ARENA_TOP + 264, 120, 24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
 
-    level.platforms.push_back({ARENA_LEFT + 120, ARENA_TOP + 150, 100, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 320, ARENA_TOP + 150, 100, 15, {139, 69, 19, 255}});
-    level.platforms.push_back({ARENA_LEFT + 220, ARENA_TOP + 80, 80, 15, {139, 69, 19, 255}});
+    level.platforms.push_back({ARENA_LEFT + 120, ARENA_TOP + 144, 96,  24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 312, ARENA_TOP + 144, 96,  24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 216, ARENA_TOP + 72,  72,  24, {139, 69, 19, 255}, (PlatformType)(rand() % 3)});
 
     // cookies
     level.cookies.push_back(new Cookie(ARENA_LEFT + 90, ARENA_TOP + 420));
@@ -204,21 +208,21 @@ LevelData LevelManager::createLevel3()
     level.playerStartY = ARENA_TOP + 80;
     level.requiredCookies = 8;
 
-    int wallThickness = 15;
+    int wallThickness = 24;
 
-    level.platforms.push_back({(float)ARENA_LEFT, (float)(ARENA_TOP + ARENA_HEIGHT - wallThickness), (float)ARENA_WIDTH, (float)wallThickness, {80, 80, 80, 255}});
-    level.platforms.push_back({(float)ARENA_LEFT, (float)ARENA_TOP, (float)ARENA_WIDTH, (float)wallThickness, {80, 80, 80, 255}});
-    level.platforms.push_back({(float)ARENA_LEFT, (float)ARENA_TOP, (float)wallThickness, (float)ARENA_HEIGHT, {80, 80, 80, 255}});
-    level.platforms.push_back({(float)(ARENA_LEFT + ARENA_WIDTH - wallThickness), (float)ARENA_TOP, (float)wallThickness, (float)ARENA_HEIGHT, {80, 80, 80, 255}});
+    level.platforms.push_back({(float)ARENA_LEFT, (float)(ARENA_TOP + ARENA_HEIGHT - wallThickness), (float)ARENA_WIDTH, (float)wallThickness, {80, 80, 80, 255}, PLATFORM_DARK});
+    level.platforms.push_back({(float)ARENA_LEFT, (float)ARENA_TOP, (float)ARENA_WIDTH, (float)wallThickness, {80, 80, 80, 255}, PLATFORM_DARK});
+    level.platforms.push_back({(float)ARENA_LEFT, (float)ARENA_TOP, (float)wallThickness, (float)ARENA_HEIGHT, {80, 80, 80, 255}, PLATFORM_DARK});
+    level.platforms.push_back({(float)(ARENA_LEFT + ARENA_WIDTH - wallThickness), (float)ARENA_TOP, (float)wallThickness, (float)ARENA_HEIGHT, {80, 80, 80, 255}, PLATFORM_DARK});
 
     // platforms
-    level.platforms.push_back({ARENA_LEFT + 200, ARENA_TOP + 100, 100, 15, {100, 150, 200, 255}});
-    level.platforms.push_back({ARENA_LEFT + 80, ARENA_TOP + 200, 100, 15, {100, 150, 200, 255}});
-    level.platforms.push_back({ARENA_LEFT + 320, ARENA_TOP + 200, 100, 15, {100, 150, 200, 255}});
-    level.platforms.push_back({ARENA_LEFT + 170, ARENA_TOP + 300, 160, 15, {100, 150, 200, 255}});
-    level.platforms.push_back({ARENA_LEFT + 50, ARENA_TOP + 400, 120, 15, {100, 150, 200, 255}});
-    level.platforms.push_back({ARENA_LEFT + 330, ARENA_TOP + 400, 120, 15, {100, 150, 200, 255}});
-    level.platforms.push_back({ARENA_LEFT + 180, ARENA_TOP + 490, 140, 15, {100, 150, 200, 255}});
+    level.platforms.push_back({ARENA_LEFT + 192, ARENA_TOP + 96,  120, 24, {100, 150, 200, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 72,  ARENA_TOP + 192, 120, 24, {100, 150, 200, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 312, ARENA_TOP + 192, 120, 24, {100, 150, 200, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 168, ARENA_TOP + 312, 168, 24, {100, 150, 200, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 48,  ARENA_TOP + 408, 120, 24, {100, 150, 200, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 336, ARENA_TOP + 408, 120, 24, {100, 150, 200, 255}, (PlatformType)(rand() % 3)});
+    level.platforms.push_back({ARENA_LEFT + 192, ARENA_TOP + 480, 144, 24, {100, 150, 200, 255}, (PlatformType)(rand() % 3)});
 
     // cookies
     level.cookies.push_back(new Cookie(ARENA_LEFT + 240, ARENA_TOP + 70));
