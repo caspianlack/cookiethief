@@ -13,6 +13,9 @@
 #include "constants.h"
 #include <cstdio>
 #include <cmath>
+#include <direct.h>   // For _mkdir on Windows
+#include <sys/stat.h>
+#include <sys/types.h>
 
 // ============================================================================
 // INITIALIZATION & CLEANUP
@@ -53,6 +56,11 @@ Game::Game()
     baker = nullptr;
     textureManager = nullptr;
     shopIsFromSideRoom = false;
+
+    // Frame Dumping
+    isRecording = false;
+    frameCounter = 0;
+    _mkdir("recordings"); // Ensure folder exists
 }
 
 Game::~Game()
@@ -740,23 +748,29 @@ void Game::handleEvents()
                 hasInteractedThisPress = true;
             }
 
-            // JUMP/GLIDE: Space bar
-            if (event.key.keysym.sym == SDLK_SPACE)
-            {
-                if (isPlayerOnGround())
+                if (event.key.keysym.sym == SDLK_SPACE)
                 {
-                    player->onGround = true;
-                    player->jump();
-                    currentRun->getStats().jumpsThisRun++;
-                    hasJumpedThisPress = true;
+                    if (isPlayerOnGround())
+                    {
+                        player->onGround = true;
+                        player->jump();
+                        currentRun->getStats().jumpsThisRun++;
+                        hasJumpedThisPress = true;
+                    }
+                    else if (!hasJumpedThisPress)
+                    {
+                        // Hold space while airborne to glide
+                        player->startGliding();
+                    }
                 }
-                else if (!hasJumpedThisPress)
+
+                // Recording toggle
+                if (event.key.keysym.sym == SDLK_F9)
                 {
-                    // Hold space while airborne to glide
-                    player->startGliding();
+                    isRecording = !isRecording;
+                    printf("Frame Dumping: %s\n", isRecording ? "STARTED" : "STOPPED");
                 }
             }
-        }
 
         // Key release handling
         if (event.type == SDL_KEYUP)
@@ -1414,7 +1428,43 @@ void Game::render()
         renderGameOver();
     }
 
+    // Capture frame if recording is active (before present)
+    if (isRecording)
+    {
+        captureFrame();
+        
+        // Render simple "REC" indicator (top left)
+        SDL_Color red = {255, 0, 0, 255};
+        textManager->renderText(renderer, "REC", "small", 20, 20, red);
+        SDL_Rect dot = {45, 12, 10, 10};
+        SDL_RenderFillRect(renderer, &dot);
+    }
+
     SDL_RenderPresent(renderer);
+}
+
+void Game::captureFrame()
+{
+    // Get window dimensions
+    int w, h;
+    SDL_GetRendererOutputSize(renderer, &w, &h);
+
+    // Create a surface to read pixels into
+    SDL_Surface* surface = SDL_CreateRGBSurfaceWithFormat(0, w, h, 32, SDL_PIXELFORMAT_ARGB8888);
+    if (!surface) return;
+
+    // Read pixels from renderer
+    if (SDL_RenderReadPixels(renderer, NULL, SDL_PIXELFORMAT_ARGB8888, surface->pixels, surface->pitch) == 0)
+    {
+        // Construct filename: recordings/frame_000001.bmp
+        char filename[128];
+        sprintf(filename, "recordings/frame_%06d.bmp", frameCounter++);
+        
+        // Save using native SDL function (very fast for BMP)
+        SDL_SaveBMP(surface, filename);
+    }
+
+    SDL_FreeSurface(surface);
 }
 
 void Game::renderLobby()

@@ -97,6 +97,11 @@ private:
     // Screen shake
     float shakeTimer;     // Time remaining for shake
     float shakeIntensity; // Max pixel offset during shake
+    
+    // Frame dumping
+    bool isRecording;
+    int frameCounter;
+    void captureFrame();
 
     void handleEvents();
     void update();
