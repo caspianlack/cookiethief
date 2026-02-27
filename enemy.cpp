@@ -66,22 +66,7 @@ Enemy::Enemy(float startX, float startY, EnemyType enemyType, int difficulty)
         attackRange = 45.0f;
         break;
 
-    case ENEMY_SHOOTER:
-        speed = SHOOTER_SPEED * (1.0f + difficulty * ENEMY_SPEED_SCALE_PER_FLOOR) * enemyVariation;
-        patrolLeft = x - 50;
-        patrolRight = x + 50;
-        patrolDirection = 1;
-        shootCooldown = SHOOTER_INITIAL_COOLDOWN;
-        shootInterval = SHOOTER_SHOOT_INTERVAL - (difficulty * SHOOTER_COOLDOWN_REDUCE_PER_FLOOR);
-        if (shootInterval < SHOOTER_MIN_SHOOT_INTERVAL)
-        {
-            shootInterval = SHOOTER_MIN_SHOOT_INTERVAL;
-        }
-        aimTime = 0;
-        isAiming = false;
-        printf("ENEMY_SHOOTER created at (%.1f, %.1f) with shoot interval %.1fs\n",
-               x, y, shootInterval);
-        break;
+    // ENEMY_SHOOTER case removed - oven now fills the shooter role (ENEMY_OVEN handles setup below)
 
     case ENEMY_BAKER:
         width = 60; // Bigger than normal
@@ -177,13 +162,7 @@ void Enemy::update(Player &player, const std::vector<Platform> &platforms, std::
         updateJumper(player, platforms);
         break;
 
-    case ENEMY_SHOOTER:
-        if (projectiles)
-        {
-            updateShooter(player, *projectiles, platforms);
-        }
-        applyGravity(platforms);
-        break;
+    // ENEMY_SHOOTER no longer used - oven handles its own updates via ENEMY_OVEN
 
     case ENEMY_BAKER:
         updateBaker(player);
@@ -1231,27 +1210,21 @@ void Enemy::render(SDL_Renderer *renderer, float cameraY)
         }
         break;
 
-    case ENEMY_SHOOTER:
-        SDL_SetRenderDrawColor(renderer, 180, 140, 100, 255);
+    case ENEMY_OVEN:
+        // Oven is rendered via sprite sheet in game.cpp's render loop,
+        // so this fallback rect path is only hit if the sprite isn't available.
+        SDL_SetRenderDrawColor(renderer, 180, 100, 50, 255); // Orange-brown oven colour
+        SDL_RenderFillRect(renderer, &rect);
+        if (ovenState == OVEN_SHOOTING)
+        {
+            SDL_SetRenderDrawColor(renderer, 255, 200, 0, 200);
+            SDL_Rect doorGlow = {rect.x + rect.w / 4, rect.y + rect.h / 4,
+                                 rect.w / 2, rect.h / 2};
+            SDL_RenderFillRect(renderer, &doorGlow);
+        }
+        return; // Don't fall through to weapon render
+    } // end switch
 
-        if (isAiming)
-        {
-            SDL_SetRenderDrawColor(renderer, 255, 0, 0, 150);
-            SDL_Rect aimIndicator = {rect.x + 8, rect.y + 15, 16, 4};
-            SDL_RenderFillRect(renderer, &aimIndicator);
-        }
-
-        if (facingLeft)
-        {
-            weapon = {rect.x - 2, rect.y + 15, 8, 20};
-        }
-        else
-        {
-            weapon = {rect.x + rect.w - 6, rect.y + 15, 8, 20};
-        }
-        SDL_RenderFillRect(renderer, &weapon);
-        break;
-    }
     SDL_RenderFillRect(renderer, &weapon);
 }
 

@@ -299,50 +299,66 @@ void DownwellGenerator::generateSection(DownwellSegment &segment, SectionType ty
             segment.cookies.push_back(new Cookie(cookieX, cookieY));
         }
 
-        // Add enemies, avoiding close clustering
         if (randomChance(enemyChance) && platformCount > 1)
         {
-            float enemyX = x + width / 2 - 16;
-            float enemyY = currentY - 48;
+            EnemyType enemyType = ENEMY_PATROL;
+
+            // Choose enemy type based on section and difficulty
+            if (type == SECTION_GAUNTLET)
+            {
+                int typeRoll = randomInt(0, 5);
+                if (typeRoll <= 2)
+                    enemyType = ENEMY_JUMPER;
+                else if (typeRoll <= 4)
+                    enemyType = ENEMY_OVEN;
+            }
+            else if (difficulty == 0)
+            {
+                enemyType = ENEMY_PATROL;
+            }
+            else if (difficulty == 1)
+            {
+                int typeRoll = randomInt(0, 3);
+                enemyType = (typeRoll == 0) ? ENEMY_OVEN : ENEMY_PATROL;
+            }
+            else if (difficulty <= 3)
+            {
+                // Explicitly enumerate valid types - no raw cast (avoids mapping to ENEMY_BAKER)
+                int typeRoll = randomInt(0, 2);
+                if (typeRoll == 0)      enemyType = ENEMY_PATROL;
+                else if (typeRoll == 1) enemyType = ENEMY_JUMPER;
+                else                    enemyType = ENEMY_OVEN;
+            }
+            else
+            {
+                int typeRoll = randomInt(0, 4);
+                if (typeRoll == 0)
+                    enemyType = ENEMY_PATROL;
+                else if (typeRoll <= 2)
+                    enemyType = ENEMY_JUMPER;
+                else
+                    enemyType = ENEMY_OVEN;
+            }
+
+            // Calculate spawn position — centre of platform, sitting on top
+            // Use type-specific hitbox dimensions so the enemy lands correctly
+            float enemyHalfW, enemyH;
+            if (enemyType == ENEMY_OVEN)
+            {
+                enemyHalfW = OVEN_HITBOX_W / 2.0f;  // 21px
+                enemyH     = OVEN_HITBOX_H;          // 54px
+            }
+            else
+            {
+                enemyHalfW = ENEMY_WIDTH  / 2.0f;   // 16px
+                enemyH     = ENEMY_HEIGHT;           // 48px
+            }
+
+            float enemyX = x + width / 2.0f - enemyHalfW;
+            float enemyY = currentY - enemyH;
 
             if (!hasEnemyNearby(segment.enemies, enemyX, enemyY, 200.0f))
             {
-                EnemyType enemyType = ENEMY_PATROL;
-
-                // Choose enemy type based on section and difficulty
-                if (type == SECTION_GAUNTLET)
-                {
-                    int typeRoll = randomInt(0, 5);
-                    if (typeRoll <= 2)
-                        enemyType = ENEMY_JUMPER;
-                    else if (typeRoll <= 4)
-                        enemyType = ENEMY_SHOOTER;
-                }
-                else if (difficulty == 0)
-                {
-                    enemyType = ENEMY_PATROL;
-                }
-                else if (difficulty == 1)
-                {
-                    int typeRoll = randomInt(0, 3);
-                    enemyType = (typeRoll == 0) ? ENEMY_SHOOTER : ENEMY_PATROL;
-                }
-                else if (difficulty <= 3)
-                {
-                    int typeRoll = randomInt(0, 2);
-                    enemyType = (EnemyType)typeRoll;
-                }
-                else
-                {
-                    int typeRoll = randomInt(0, 4);
-                    if (typeRoll == 0)
-                        enemyType = ENEMY_PATROL;
-                    else if (typeRoll <= 2)
-                        enemyType = ENEMY_JUMPER;
-                    else
-                        enemyType = ENEMY_SHOOTER;
-                }
-
                 segment.enemies.push_back(new Enemy(enemyX, enemyY, enemyType, difficulty));
             }
         }
