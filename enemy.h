@@ -10,10 +10,21 @@ class Projectile;
 
 enum EnemyType
 {
-    ENEMY_PATROL, // Frying pan - patrols platform edges
-    ENEMY_JUMPER, // Rolling pin - chases and jumps at player
+    ENEMY_PATROL,  // Frying pan  - patrols platform edges
+    ENEMY_JUMPER,  // Rolling pin - chases and jumps at player
     ENEMY_SHOOTER, // Wooden spoon - shoots projectiles from platform edges
-    ENEMY_BAKER   // The Arch-Baker - chases player down the hole
+    ENEMY_BAKER,   // The Arch-Baker - chases player down the hole
+    ENEMY_OVEN     // Oven - walks, stops, bakes, opens door, shoots cookies
+};
+
+// State machine for the oven enemy
+enum OvenState
+{
+    OVEN_WALKING,   // Row 1 - patrolling
+    OVEN_BAKING,    // Row 2 - oven heating up (plays once then transitions)
+    OVEN_OPENING,   // Row 3 - door opening   (plays once then transitions)
+    OVEN_SHOOTING,  // Row 4 - cookies being fired (synced to projectiles)
+    OVEN_DEAD       // Row 5 - placeholder death
 };
 
 class Enemy
@@ -42,9 +53,16 @@ public:
     // Animation
     float animTimer;
     int currentFrame;
+    int currentRow;        // Which sprite-sheet row is active
     bool isPaused;
     bool isSleeping;
     float wakeUpRange;
+
+    // Oven-specific state machine
+    OvenState ovenState;
+    float ovenWalkTimer;    // How long left to walk before stopping
+    int   ovenShotsFired;   // Cookies fired so far in current volley
+    float ovenFrameDur;     // Current frame duration (set per-state)
 
     // Jumper data
     float jumpCooldown;
@@ -94,6 +112,8 @@ private:
     bool isBlockedHorizontally(const std::vector<Platform> &platforms, bool checkRight);
 
     void updateBaker(Player &player);
+    void updateOven(Player &player, const std::vector<Platform> &platforms, std::vector<Projectile *> &projectiles);
+    void ovenFireCookie(Player &player, std::vector<Projectile *> &projectiles);
 };
 
 #endif

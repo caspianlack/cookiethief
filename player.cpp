@@ -184,7 +184,6 @@ void Player::stopGliding()
 
 void Player::moveLeft()
 {
-    // Slower movement when sluggish
     if (isSluggish())
     {
         velocityX = -SLUGGISH_MOVE_SPEED;
@@ -197,7 +196,6 @@ void Player::moveLeft()
 
 void Player::moveRight()
 {
-    // Slower movement when sluggish
     if (isSluggish())
     {
         velocityX = SLUGGISH_MOVE_SPEED;
@@ -283,7 +281,7 @@ void Player::update()
         updateAnimation();  // Continue animating during death
         
         // Apply gravity so player falls if dead in mid-air
-        velocityY += GRAVITY;
+        velocityY += FALL_GRAVITY;
         if (velocityY > MAX_FALL_SPEED)
         {
             velocityY = MAX_FALL_SPEED;
@@ -361,7 +359,11 @@ void Player::update()
     else
     {
         // Gravity when not gliding
-        velocityY += GRAVITY;
+        if (velocityY < 0) {
+            velocityY += JUMP_GRAVITY;
+        } else {
+            velocityY += FALL_GRAVITY;
+        }
         if (!onGround)
         {
             isGliding = false;

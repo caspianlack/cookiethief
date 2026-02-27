@@ -94,6 +94,10 @@ private:
 
     float transitionTimer;
 
+    // Screen shake
+    float shakeTimer;     // Time remaining for shake
+    float shakeIntensity; // Max pixel offset during shake
+
     void handleEvents();
     void update();
     void render();
@@ -118,6 +122,7 @@ private:
 
     // Collisions
     void checkPlatformCollisions();
+    void updatePlatforms();
     void checkCookieCollisions();
     void checkEnemyCollisions();
     void checkAlcoveCeilingCollisions();

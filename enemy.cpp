@@ -6,6 +6,12 @@
 #include <cstdio>
 #include <cstdlib>
 
+// Utility: random float in [lo, hi)
+static float randomFloat_enemy(float lo, float hi)
+{
+    return lo + (rand() % 1000) / 1000.0f * (hi - lo);
+}
+
 Enemy::Enemy(float startX, float startY, EnemyType enemyType, int difficulty)
 {
     x = startX;
@@ -23,6 +29,7 @@ Enemy::Enemy(float startX, float startY, EnemyType enemyType, int difficulty)
     // Animation
     animTimer = 0.0f;
     currentFrame = 0;
+    currentRow = 0;
 
     float enemyVariation = 0.8f + (rand() % 40) / 100.0f; // 0.8 - 1.2
 
@@ -82,6 +89,23 @@ Enemy::Enemy(float startX, float startY, EnemyType enemyType, int difficulty)
         speed = 1.5f + (difficulty * 0.1f); // Slower than falling player, but constant
         // No gravity logic needed
         break;
+
+    case ENEMY_OVEN:
+        // Use the hitbox dimensions from constants (scaled from the 32x32 sprite tile)
+        width  = (float)OVEN_HITBOX_W; // 42px
+        height = (float)OVEN_HITBOX_H; // 54px
+        speed  = OVEN_WALK_SPEED * (1.0f + difficulty * ENEMY_SPEED_SCALE_PER_FLOOR) * enemyVariation;
+        patrolDirection = (rand() % 2 == 0) ? 1 : -1;
+        hasFoundEdges   = false;
+        ovenState       = OVEN_WALKING;
+        ovenWalkTimer   = OVEN_WALK_MIN_TIME +
+                          randomFloat_enemy(OVEN_WALK_MIN_TIME, OVEN_WALK_MAX_TIME);
+        ovenShotsFired  = 0;
+        ovenFrameDur    = OVEN_WALK_FRAME_DUR;
+        currentRow      = OVEN_ROW_WALK;
+        printf("ENEMY_OVEN created at (%.1f, %.1f)\n", x, y);
+        break;
+
     }
 
     float aggressionRoll = (rand() % 100) / 100.0f;
@@ -90,6 +114,9 @@ Enemy::Enemy(float startX, float startY, EnemyType enemyType, int difficulty)
         alertLevel = 0.3f;
     }
 }
+
+// Small helper used only in oven init to avoid pulling in extra headers
+// (removed - now defined above the constructor)
 
 bool Enemy::shouldActivate(const Player &player) const
 {
@@ -161,6 +188,14 @@ void Enemy::update(Player &player, const std::vector<Platform> &platforms, std::
     case ENEMY_BAKER:
         updateBaker(player);
         break;
+
+    case ENEMY_OVEN:
+        if (projectiles)
+        {
+            updateOven(player, platforms, *projectiles);
+        }
+        applyGravity(platforms);
+        break;
     }
 }
 
@@ -183,6 +218,196 @@ void Enemy::updateBaker(Player &player)
     if (x + width > 600) x = 600 - width; // Assuming 600 width roughly
 
     facingLeft = (dx < 0);
+}
+
+// ============================================================
+// OVEN ENEMY - State machine
+// Walk -> Bake (row 2) -> Open door (row 3) -> Shoot cookies
+// (row 4, 6 frames, fire on frames 0/2/4) -> Walk again
+// ============================================================
+
+void Enemy::ovenFireCookie(Player &player, std::vector<Projectile *> &projectiles)
+{
+    // Fire a cookie projectile from the oven door (center of hitbox, slightly forward)
+    float originX = x + width  / 2.0f - PROJECTILE_WIDTH  / 2.0f;
+    float originY = y + height / 2.0f - PROJECTILE_HEIGHT / 2.0f;
+
+    // Slight arc towards player
+    float dx = player.x - originX;
+    float dy = player.y - originY;
+    float dist = sqrtf(dx * dx + dy * dy);
+
+    float vx = 0.0f, vy = 0.0f;
+    if (dist > 5.0f)
+    {
+        vx = (dx / dist) * PROJECTILE_SPEED;
+        vy = (dy / dist) * PROJECTILE_SPEED;
+    }
+    else
+    {
+        vx = facingLeft ? -PROJECTILE_SPEED : PROJECTILE_SPEED;
+    }
+
+    projectiles.push_back(new Projectile(originX, originY, vx, vy));
+    ovenShotsFired++;
+    printf("Oven fired cookie %d/3 at player\n", ovenShotsFired);
+}
+
+void Enemy::updateOven(Player &player, const std::vector<Platform> &platforms,
+                       std::vector<Projectile *> &projectiles)
+{
+    // Always face the player horizontally
+    float dx = player.x - x;
+    facingLeft = (dx < 0);
+
+    const float dt = 1.0f / FPS;
+
+    switch (ovenState)
+    {
+    // ----------------------------------------------------------
+    // WALKING - patrol platform edges, then stop to shoot
+    // ----------------------------------------------------------
+    case OVEN_WALKING:
+    {
+        currentRow  = OVEN_ROW_WALK;
+        ovenFrameDur = OVEN_WALK_FRAME_DUR;
+
+        if (!hasFoundEdges)
+            findPlatformEdges(platforms);
+
+        // Move
+        x += speed * patrolDirection;
+
+        // Turn at edges or patrol bounds
+        bool atEdge   = (patrolDirection == -1) ? isOnPlatformEdge(platforms, true)
+                                                : isOnPlatformEdge(platforms, false);
+        bool atBound  = (patrolDirection == -1) ? (x <= patrolLeft)
+                                                : (x >= patrolRight);
+        if (atEdge || atBound)
+        {
+            patrolDirection *= -1;
+            x = (patrolDirection == 1) ? patrolLeft : patrolRight;
+        }
+
+        // Count down walk timer
+        ovenWalkTimer -= dt;
+        if (ovenWalkTimer <= 0.0f)
+        {
+            // Transition: stop and start baking
+            ovenState      = OVEN_BAKING;
+            currentFrame   = 0;
+            animTimer      = 0.0f;
+            ovenShotsFired = 0;
+            printf("Oven stopped - starting bake animation\n");
+        }
+        break;
+    }
+
+    // ----------------------------------------------------------
+    // BAKING - row 2 plays once, then transitions to door-open
+    // ----------------------------------------------------------
+    case OVEN_BAKING:
+    {
+        currentRow   = OVEN_ROW_BAKE;
+        ovenFrameDur = OVEN_BAKE_FRAME_DUR;
+
+        animTimer += dt;
+        if (animTimer >= ovenFrameDur)
+        {
+            animTimer -= ovenFrameDur;
+            currentFrame++;
+
+            if (currentFrame >= OVEN_FRAMES_BAKE)
+            {
+                // Bake animation complete - open the door
+                ovenState    = OVEN_OPENING;
+                currentFrame = 0;
+                animTimer    = 0.0f;
+                printf("Oven bake done - opening door\n");
+            }
+        }
+        return; // Skip the generic anim timer below
+    }
+
+    // ----------------------------------------------------------
+    // OPENING - row 3 plays once (5 frames), then start shooting
+    // ----------------------------------------------------------
+    case OVEN_OPENING:
+    {
+        currentRow   = OVEN_ROW_OPEN;
+        ovenFrameDur = OVEN_OPEN_FRAME_DUR;
+
+        animTimer += dt;
+        if (animTimer >= ovenFrameDur)
+        {
+            animTimer -= ovenFrameDur;
+            currentFrame++;
+
+            if (currentFrame >= OVEN_FRAMES_OPEN)
+            {
+                // Door fully open - begin shooting row
+                ovenState      = OVEN_SHOOTING;
+                currentFrame   = 0;
+                animTimer      = 0.0f;
+                ovenShotsFired = 0;
+                printf("Door open - starting shoot animation\n");
+            }
+        }
+        return; // Skip the generic anim timer below
+    }
+
+    // ----------------------------------------------------------
+    // SHOOTING - row 4 (6 frames).
+    // Fire a cookie on even frames: 0, 2, 4 (3 cookies total).
+    // Odd frames (1, 3, 5) are transition/"in-between" frames.
+    // After all 6 frames play, loop back to WALKING.
+    // ----------------------------------------------------------
+    case OVEN_SHOOTING:
+    {
+        currentRow   = OVEN_ROW_SHOOT;
+        ovenFrameDur = OVEN_SHOOT_FRAME_DUR;
+
+        animTimer += dt;
+        if (animTimer >= ovenFrameDur)
+        {
+            animTimer -= ovenFrameDur;
+
+            // Fire cookie at the start of even frames (before incrementing)
+            // So: when we just entered frame 0, 2, or 4 -> fire
+            if (currentFrame % 2 == 0 && currentFrame < OVEN_FRAMES_SHOOT)
+            {
+                ovenFireCookie(player, projectiles);
+            }
+
+            currentFrame++;
+
+            if (currentFrame >= OVEN_FRAMES_SHOOT)
+            {
+                // All cookies fired - go back to walking
+                ovenState     = OVEN_WALKING;
+                currentRow    = OVEN_ROW_WALK;
+                currentFrame  = 0;
+                animTimer     = 0.0f;
+                ovenWalkTimer = randomFloat_enemy(OVEN_WALK_MIN_TIME, OVEN_WALK_MAX_TIME);
+                printf("Oven shoot done - back to walking\n");
+            }
+        }
+        return; // Skip the generic anim timer below
+    }
+
+    case OVEN_DEAD:
+        currentRow   = OVEN_ROW_DEATH;
+        currentFrame = 0;
+        return;
+    }
+
+    // --- Generic animation tick for WALKING state ---
+    animTimer += dt;
+    if (animTimer >= ovenFrameDur)
+    {
+        animTimer -= ovenFrameDur;
+        currentFrame = (currentFrame + 1) % OVEN_FRAMES_WALK;
+    }
 }
 
 void Enemy::findPlatformEdges(const std::vector<Platform> &platforms)
@@ -802,7 +1027,8 @@ void Enemy::shootAtPlayer(Player &player, std::vector<Projectile *> &projectiles
 
     if (!player.onGround)
     {
-        predictedY += 0.5f * GRAVITY * timeToTarget * timeToTarget * FPS * FPS;
+        float pGrav = (player.velocityY < 0) ? JUMP_GRAVITY : FALL_GRAVITY;
+        predictedY += 0.5f * pGrav * timeToTarget * timeToTarget * FPS * FPS;
     }
 
     // Add slight randomness based on alert level (less alert = less accurate)
@@ -841,7 +1067,12 @@ void Enemy::applyGravity(const std::vector<Platform> &platforms)
 {
     if (!onGround)
     {
-        velocityY += GRAVITY;
+        if (velocityY < 0) {
+            velocityY += JUMP_GRAVITY;
+        } else {
+            velocityY += FALL_GRAVITY;
+        }
+
         if (velocityY > MAX_FALL_SPEED)
         {
             velocityY = MAX_FALL_SPEED;

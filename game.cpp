@@ -48,6 +48,11 @@ Game::Game()
     playerReturnY = 0;
     maxDepthReached = 0;
     interactionTimer = 0.0f;
+    shakeTimer = 0.0f;
+    shakeIntensity = 0.0f;
+    baker = nullptr;
+    textureManager = nullptr;
+    shopIsFromSideRoom = false;
 }
 
 Game::~Game()
@@ -117,6 +122,12 @@ bool Game::init()
 
     // Baker
     textureManager->loadTexture("baker", "assets/baker.png");
+
+    // Oven Enemy
+    if (!textureManager->loadTexture("enemy_oven", "assets/enemy-oven.png"))
+    {
+        printf("WARNING: Failed to load enemy-oven sprite sheet!\n");
+    }
 
     // Items
     textureManager->loadTexture("cookie", "assets/cookie.png");
@@ -534,9 +545,15 @@ void Game::cleanCurrentLevel()
  */
 SDL_Rect Game::worldToScreen(SDL_Rect worldRect)
 {
+    float shakeOffsetY = 0.0f;
+    if (shakeTimer > 0.0f)
+    {
+        // Sinusoidal rumble that decays as timer runs out
+        shakeOffsetY = shakeIntensity * (shakeTimer / 0.3f) * sinf(shakeTimer * 60.0f);
+    }
     return {
         worldRect.x,
-        (int)(worldRect.y - cameraY),
+        (int)(worldRect.y - cameraY + shakeOffsetY),
         worldRect.w,
         worldRect.h};
 }
@@ -901,10 +918,18 @@ void Game::updateDownwell()
     float oldY = player->y;
 
     player->update();
+    updatePlatforms(); // Update tile timers
     checkPlatformCollisions();
     checkAlcoveCeilingCollisions();
     checkCookieCollisions();
     checkEnemyCollisions();
+
+    // Tick screen shake
+    if (shakeTimer > 0.0f)
+    {
+        shakeTimer -= 1.0f / FPS;
+        if (shakeTimer < 0.0f) shakeTimer = 0.0f;
+    }
 
     // Track maximum depth reached (for UI percentage)
     if (player->y > maxDepthReached)
@@ -1024,14 +1049,56 @@ void Game::checkPlatformCollisions()
 
         if (SDL_HasIntersection(&playerRect, &platformRect))
         {
+            // Check if ANY non-destroyed tiles overlap horizontally with player
+            bool onSolidTile = false;
+            int startIdx = (int)((player->x - platform.x) / PLATFORM_TILE_SIZE);
+            int endIdx = (int)((player->x + player->width - platform.x) / PLATFORM_TILE_SIZE);
+            
+            for (int i = std::max(0, startIdx); i <= std::min((int)platform.tiles.size() - 1, endIdx); i++)
+            {
+                if (platform.tiles[i].state != TILE_DESTROYED)
+                {
+                    onSolidTile = true;
+                    break;
+                }
+            }
+
+            if (!onSolidTile) continue; // Phase through destroyed Gap
+
+            // PLATFORM BREAK: smash through when falling fast enough (Downwell only)
+            bool breakingThrough = (currentState == STATE_DOWNWELL &&
+                                    player->velocityY >= PLATFORM_BREAK_SPEED);
+
             // Landing on top of platform (can phase through from below)
-            if (player->velocityY >= 0 && prevPlayerBottom <= platformTop + 3)
+            if (!breakingThrough && player->velocityY >= 0 && prevPlayerBottom <= platformTop + 3)
             {
                 player->y = platformTop - player->height;
                 player->velocityY = 0;
                 player->onGround = true;
             }
-            // Side collisions (wall bumping)
+            else if (breakingThrough && player->velocityY >= 0 && prevPlayerBottom <= platformTop + 3)
+            {
+                bool hitHealthy = false;
+                // Crack the tiles we hit!
+                for (int i = std::max(0, startIdx); i <= std::min((int)platform.tiles.size() - 1, endIdx); i++)
+                {
+                    if (platform.tiles[i].state == TILE_HEALTHY)
+                    {
+                        platform.tiles[i].state = TILE_CRACKED;
+                        platform.tiles[i].breakTimer = 0.15f; // Smash in 0.15s
+                        hitHealthy = true;
+                    }
+                }
+
+                if (hitHealthy)
+                {
+                    player->velocityY *= PLATFORM_BREAK_RESISTANCE;
+                    // Trigger screen shake
+                    shakeTimer = 0.3f;
+                    shakeIntensity = 12.0f;
+                }
+            }
+            // Side collisions (wall bumping) - always active, even mid-break
             else if (playerBottom > platformTop + 3 && playerTop < platformBottom)
             {
                 if (player->velocityX > 0 && prevPlayerRight <= platformLeft + 2)
@@ -1178,6 +1245,25 @@ void Game::checkPlatformCollisions()
             player->y = SCREEN_HEIGHT - player->height;
             player->velocityY = 0;
             player->onGround = true;
+        }
+    }
+}
+
+void Game::updatePlatforms()
+{
+    float dt = 1.0f / FPS;
+    for (auto &platform : platforms)
+    {
+        for (auto &tile : platform.tiles)
+        {
+            if (tile.state == TILE_CRACKED)
+            {
+                tile.breakTimer -= dt;
+                if (tile.breakTimer <= 0)
+                {
+                    tile.state = TILE_DESTROYED;
+                }
+            }
         }
     }
 }
@@ -1569,7 +1655,27 @@ void Game::renderDownwell()
         if (screenRect.y + screenRect.h > 0 && screenRect.y < SCREEN_HEIGHT)
         {
             SDL_RendererFlip flip = enemy->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-            textureManager->renderTexture("enemy", screenRect.x, screenRect.y, screenRect.w, screenRect.h, flip);
+
+            if (enemy->type == ENEMY_OVEN)
+            {
+                // Render oven sprite sheet: 32x32 source -> 96x96 dest
+                // Sprite top-left is offset from hitbox by the hitbox margins
+                int ovenSpriteX = screenRect.x - OVEN_HITBOX_LEFT  * OVEN_RENDER_SCALE;
+                int ovenSpriteY = screenRect.y - OVEN_HITBOX_TOP   * OVEN_RENDER_SCALE;
+                int srcX = enemy->currentFrame * OVEN_SPRITE_SIZE;
+                int srcY = enemy->currentRow   * OVEN_SPRITE_SIZE;
+                textureManager->renderFrame("enemy_oven",
+                                            ovenSpriteX, ovenSpriteY,
+                                            srcX, srcY,
+                                            OVEN_SPRITE_SIZE, OVEN_SPRITE_SIZE,
+                                            OVEN_RENDER_SIZE, OVEN_RENDER_SIZE,
+                                            flip);
+            }
+            else
+            {
+                textureManager->renderTexture("enemy", screenRect.x, screenRect.y,
+                                              screenRect.w, screenRect.h, flip);
+            }
         }
     }
 
@@ -1841,11 +1947,28 @@ void Game::renderBombJack()
     for (auto *enemy : enemies)
     {
         SDL_RendererFlip flip = enemy->facingLeft ? SDL_FLIP_HORIZONTAL : SDL_FLIP_NONE;
-        
-        // Enemy sprites are also 32x32 tiles
-        textureManager->renderFrame("enemy", enemy->x, enemy->y + enemy->height - 32, 
-                                   enemy->currentFrame * 32, 0, 32, 32, 
-                                   32, 32, flip);
+
+        if (enemy->type == ENEMY_OVEN)
+        {
+            // Oven sprite sheet rendering (BombJack room - no camera offset needed)
+            int ovenSpriteX = (int)enemy->x - OVEN_HITBOX_LEFT * OVEN_RENDER_SCALE;
+            int ovenSpriteY = (int)enemy->y - OVEN_HITBOX_TOP  * OVEN_RENDER_SCALE;
+            int srcX = enemy->currentFrame * OVEN_SPRITE_SIZE;
+            int srcY = enemy->currentRow   * OVEN_SPRITE_SIZE;
+            textureManager->renderFrame("enemy_oven",
+                                        ovenSpriteX, ovenSpriteY,
+                                        srcX, srcY,
+                                        OVEN_SPRITE_SIZE, OVEN_SPRITE_SIZE,
+                                        OVEN_RENDER_SIZE, OVEN_RENDER_SIZE,
+                                        flip);
+        }
+        else
+        {
+            // Enemy sprites are also 32x32 tiles
+            textureManager->renderFrame("enemy", enemy->x, enemy->y + enemy->height - 32,
+                                       enemy->currentFrame * 32, 0, 32, 32,
+                                       32, 32, flip);
+        }
     }
 
     for (auto *proj : projectiles)
@@ -2088,10 +2211,15 @@ void Game::renderTexturedPlatform(const Platform& platform)
     
     for (int ty = 0; ty < numTilesY; ty++) {
         for (int tx = 0; tx < numTilesX; tx++) {
+            // Check tile health (using horizontal index for 1D tile vector)
+            if (tx < (int)platform.tiles.size()) {
+                if (platform.tiles[tx].state == TILE_DESTROYED) continue;
+            }
+
             int drawX = screenRect.x + tx * PLATFORM_TILE_SIZE;
             int drawY = screenRect.y + ty * PLATFORM_TILE_SIZE;
             
-            // Calculate source and destination dimensions (handle partial tiles at edges if any remains)
+            // Calculate source and destination dimensions
             int destW = PLATFORM_TILE_SIZE;
             int destH = PLATFORM_TILE_SIZE;
             
@@ -2100,22 +2228,30 @@ void Game::renderTexturedPlatform(const Platform& platform)
             if ((ty + 1) * PLATFORM_TILE_SIZE > platform.height) 
                 destH = (int)platform.height - ty * PLATFORM_TILE_SIZE;
             
-            // Scale source rect accordingly if dest is partial
             int srcW = (int)ceil(destW / (float)PLATFORM_RENDER_SCALE);
             int srcH = (int)ceil(destH / (float)PLATFORM_RENDER_SCALE);
 
             if (destW > 0 && destH > 0) {
+                // If cracked, tint to show stress
+                if (tx < (int)platform.tiles.size() && platform.tiles[tx].state == TILE_CRACKED) {
+                    SDL_SetTextureColorMod(textureManager->getTexture("platform_tileset"), 255, 120, 100);
+                }
+
                 // Render the solid chocolate block
                 textureManager->renderFrame("platform_tileset", drawX, drawY,
                                            tileSrcX, tileSrcY, srcW, srcH,
                                            destW, destH);
                 
-                // Add cracks
+                // Add cracks (standard pattern)
                 if ((tx + ty + (int)platform.x) % 7 == 0) {
                     int crackIdx = (tx + (int)platform.y) % 4;
                     textureManager->renderFrame("platform_tileset", drawX, drawY,
                                                crackIdx * TILE_SIZE, TILE_SIZE, srcW, srcH,
                                                destW, destH);
+                }
+
+                if (tx < (int)platform.tiles.size() && platform.tiles[tx].state == TILE_CRACKED) {
+                    SDL_SetTextureColorMod(textureManager->getTexture("platform_tileset"), 255, 255, 255);
                 }
             }
         }

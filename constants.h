@@ -32,11 +32,14 @@ const int ARENA_LEFT = (SCREEN_WIDTH - ARENA_WIDTH) / 2; // 150
 const int ARENA_TOP = 25;
 
 // Physics constants
-const float GRAVITY = 0.5f;
+const float JUMP_GRAVITY = 0.45f;
+const float FALL_GRAVITY = 0.25f; // Slower acceleration when falling
 const float GLIDE_FALL_SPEED = 2.0f;
 const float JUMP_FORCE = -12.0f;
 const float MOVE_SPEED = 5.0f;
-const float MAX_FALL_SPEED = 15.0f;
+const float MAX_FALL_SPEED = 22.0f;
+const float PLATFORM_BREAK_SPEED = 14.0f; // Smashing is easier to trigger now
+const float PLATFORM_BREAK_RESISTANCE = 0.1f; // Multiply velocity by this when smashing (30% loss)
 
 // Gliding settings
 const float MAX_GLIDE_TIME = 2.0f;
@@ -122,5 +125,52 @@ const int PLATFORM_TILE_DARK = 0;
 const int PLATFORM_TILE_MILK = 1;
 const int PLATFORM_TILE_WHITE = 2;
 const int PLATFORM_TILE_EMPTY = 3;
+
+// ============================================================
+// Oven Enemy sprite sheet configuration
+// Sprite sheet: 32x32 tiles, 3x scale -> 96x96 rendered
+// The actual oven art is ~16x16 centered in the 32x32 tile.
+// Bottom of oven sits 9px from the bottom of the 32x32 tile.
+// ============================================================
+const int OVEN_SPRITE_SIZE   = 32;   // Source tile size
+const int OVEN_RENDER_SCALE  = 3;    // Same 3x scale as player
+const int OVEN_RENDER_SIZE   = OVEN_SPRITE_SIZE * OVEN_RENDER_SCALE; // 96px
+
+// Hitbox offsets within the 32x32 tile (before scaling)
+// 9px in on each side horizontally, 5px from top, 9px from bottom
+const int OVEN_HITBOX_LEFT   =  9;
+const int OVEN_HITBOX_RIGHT  =  9;
+const int OVEN_HITBOX_TOP    =  5;
+const int OVEN_HITBOX_BOTTOM =  9;
+
+// Calculated hitbox dimensions (scaled)
+const int OVEN_HITBOX_W = (OVEN_SPRITE_SIZE - OVEN_HITBOX_LEFT - OVEN_HITBOX_RIGHT)  * OVEN_RENDER_SCALE; // 14*3 = 42
+const int OVEN_HITBOX_H = (OVEN_SPRITE_SIZE - OVEN_HITBOX_TOP  - OVEN_HITBOX_BOTTOM) * OVEN_RENDER_SCALE; // 18*3 = 54
+
+// Oven animation rows (0-indexed)
+const int OVEN_ROW_IDLE   = 0; // 5 frames  (unused for now)
+const int OVEN_ROW_WALK   = 1; // 4 frames
+const int OVEN_ROW_BAKE   = 2; // baking / oven heating  (frame count TBD)
+const int OVEN_ROW_OPEN   = 3; // oven door opening      (5 frames)
+const int OVEN_ROW_SHOOT  = 4; // cookies leaving oven   (6 frames synced to shots)
+const int OVEN_ROW_DEATH  = 5; // death (1 frame placeholder)
+
+const int OVEN_FRAMES_IDLE  = 5;
+const int OVEN_FRAMES_WALK  = 4;
+const int OVEN_FRAMES_BAKE  = 4; // adjust to actual frame count in sheet
+const int OVEN_FRAMES_OPEN  = 5;
+const int OVEN_FRAMES_SHOOT = 6;
+const int OVEN_FRAMES_DEATH = 1;
+
+// Oven behaviour timings
+const float OVEN_WALK_SPEED          = 1.2f;
+const float OVEN_WALK_MIN_TIME       = 2.0f;  // How long it walks before stopping
+const float OVEN_WALK_MAX_TIME       = 4.0f;
+const float OVEN_BAKE_FRAME_DUR      = 0.18f; // seconds per bake frame
+const float OVEN_OPEN_FRAME_DUR      = 0.14f; // seconds per door-open frame
+// shoot row: each cookie firing occupies 2 frames (1 cookie gone + 1 transition)
+// With 3 cookies => 6 frames total. Fire cookie on the "gone" frames: 0, 2, 4.
+const float OVEN_SHOOT_FRAME_DUR     = 0.15f; // seconds per shoot-row frame
+const float OVEN_WALK_FRAME_DUR      = 0.18f; // seconds per walk frame
 
 #endif
