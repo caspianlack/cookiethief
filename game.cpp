@@ -1658,8 +1658,9 @@ void Game::renderDownwell()
 
             if (enemy->type == ENEMY_OVEN)
             {
+                // Oven sprite faces LEFT by default — flip when facing right
+                SDL_RendererFlip ovenFlip = enemy->facingLeft ? SDL_FLIP_NONE : SDL_FLIP_HORIZONTAL;
                 // Render oven sprite sheet: 32x32 source -> 96x96 dest
-                // Sprite top-left is offset from hitbox by the hitbox margins
                 int ovenSpriteX = screenRect.x - OVEN_HITBOX_LEFT  * OVEN_RENDER_SCALE;
                 int ovenSpriteY = screenRect.y - OVEN_HITBOX_TOP   * OVEN_RENDER_SCALE;
                 int srcX = enemy->currentFrame * OVEN_SPRITE_SIZE;
@@ -1669,7 +1670,7 @@ void Game::renderDownwell()
                                             srcX, srcY,
                                             OVEN_SPRITE_SIZE, OVEN_SPRITE_SIZE,
                                             OVEN_RENDER_SIZE, OVEN_RENDER_SIZE,
-                                            flip);
+                                            ovenFlip);
             }
             else
             {
@@ -1950,7 +1951,8 @@ void Game::renderBombJack()
 
         if (enemy->type == ENEMY_OVEN)
         {
-            // Oven sprite sheet rendering (BombJack room - no camera offset needed)
+            // Oven sprite faces LEFT by default — flip when facing right
+            SDL_RendererFlip ovenFlip = enemy->facingLeft ? SDL_FLIP_NONE : SDL_FLIP_HORIZONTAL;
             int ovenSpriteX = (int)enemy->x - OVEN_HITBOX_LEFT * OVEN_RENDER_SCALE;
             int ovenSpriteY = (int)enemy->y - OVEN_HITBOX_TOP  * OVEN_RENDER_SCALE;
             int srcX = enemy->currentFrame * OVEN_SPRITE_SIZE;
@@ -1960,7 +1962,7 @@ void Game::renderBombJack()
                                         srcX, srcY,
                                         OVEN_SPRITE_SIZE, OVEN_SPRITE_SIZE,
                                         OVEN_RENDER_SIZE, OVEN_RENDER_SIZE,
-                                        flip);
+                                        ovenFlip);
         }
         else
         {

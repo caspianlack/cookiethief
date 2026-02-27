@@ -235,10 +235,7 @@ void Enemy::ovenFireCookie(Player &player, std::vector<Projectile *> &projectile
 void Enemy::updateOven(Player &player, const std::vector<Platform> &platforms,
                        std::vector<Projectile *> &projectiles)
 {
-    // Always face the player horizontally
     float dx = player.x - x;
-    facingLeft = (dx < 0);
-
     const float dt = 1.0f / FPS;
 
     switch (ovenState)
@@ -248,6 +245,9 @@ void Enemy::updateOven(Player &player, const std::vector<Platform> &platforms,
     // ----------------------------------------------------------
     case OVEN_WALKING:
     {
+        // Face the direction we're moving
+        facingLeft = (patrolDirection == -1);
+
         currentRow  = OVEN_ROW_WALK;
         ovenFrameDur = OVEN_WALK_FRAME_DUR;
 
@@ -287,6 +287,9 @@ void Enemy::updateOven(Player &player, const std::vector<Platform> &platforms,
     // ----------------------------------------------------------
     case OVEN_BAKING:
     {
+        // Face the player while heating up
+        facingLeft = (dx < 0);
+
         currentRow   = OVEN_ROW_BAKE;
         ovenFrameDur = OVEN_BAKE_FRAME_DUR;
 
@@ -313,6 +316,9 @@ void Enemy::updateOven(Player &player, const std::vector<Platform> &platforms,
     // ----------------------------------------------------------
     case OVEN_OPENING:
     {
+        // Face the player as the door opens
+        facingLeft = (dx < 0);
+
         currentRow   = OVEN_ROW_OPEN;
         ovenFrameDur = OVEN_OPEN_FRAME_DUR;
 
@@ -343,6 +349,9 @@ void Enemy::updateOven(Player &player, const std::vector<Platform> &platforms,
     // ----------------------------------------------------------
     case OVEN_SHOOTING:
     {
+        // Keep facing the player while shooting
+        facingLeft = (dx < 0);
+
         currentRow   = OVEN_ROW_SHOOT;
         ovenFrameDur = OVEN_SHOOT_FRAME_DUR;
 
