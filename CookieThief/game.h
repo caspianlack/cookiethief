@@ -3,6 +3,7 @@
 
 #include <SDL2/SDL.h>
 #include <vector>
+#include <memory>
 #include "player.h"
 #include "enemy.h"
 #include "cookie.h"
@@ -13,6 +14,7 @@
 #include "downwellgenerator.h"
 #include "projectile.h"
 #include "texturemanager.h"
+#include "screen.h"
 
 struct SideDoor
 {
@@ -50,6 +52,8 @@ private:
     DownwellGenerator *downwellGenerator;
     GameRun *currentRun;
     PersistentStats persistentStats;
+
+    ScreenManager screenManager;
 
     GameState currentState;
     GameState previousState; // returning from side rooms
@@ -141,7 +145,6 @@ private:
     void renderStats();
 
     // State transitions
-    void loadLobby();
     void startNewRun();
     void generateDownwellSegment();
     void enterSideRoom(RoomType type);
@@ -168,6 +171,18 @@ public:
     bool init();
     void run();
     void clean();
+
+    // --- Public interface for Screen subclasses ---
+    void loadLobby();   // moved to public so GameOverOverlay can call it
+    void triggerHeartLoss(); // pushes HeartLossOverlay onto the screen stack
+
+    // Getters for screen rendering helpers
+    SDL_Renderer*  getRenderer()       const { return renderer; }
+    TextManager*   getTextManager()    const { return textManager; }
+    TextureManager* getTextureManager() const { return textureManager; }
+    GameRun*       getCurrentRun()     const { return currentRun; }
+    Player*        getPlayer()         const { return player; }
+    float          getCameraY()        const { return cameraY; }
 };
 
 #endif

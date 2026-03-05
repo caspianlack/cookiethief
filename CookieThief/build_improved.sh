@@ -8,6 +8,7 @@ SDL2_LIBS=$(pkg-config --libs sdl2 SDL2_image SDL2_ttf)
 # Compile
 g++ main.cpp game.cpp player.cpp enemy.cpp cookie.cpp projectile.cpp \
 textmanager.cpp levelmanager.cpp downwellgenerator.cpp gamerun.cpp texturemanager.cpp \
+screenmanager.cpp heart_loss_overlay.cpp gameover_overlay.cpp \
 $SDL2_CFLAGS \
 $SDL2_LIBS \
 -o CookieThief.exe

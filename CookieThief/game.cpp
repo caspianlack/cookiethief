@@ -11,6 +11,8 @@
 
 #include "game.h"
 #include "constants.h"
+#include "heart_loss_overlay.h"
+#include "gameover_overlay.h"
 #include <cstdio>
 #include <cmath>
 #include <direct.h>   // For _mkdir on Windows
@@ -113,7 +115,7 @@ bool Game::init()
     // --- LOAD SPRITES FROM FILES ---
     
     // Player Sprite Sheet
-    if (!textureManager->loadTexture("player", "assets/player_sheet.png"))
+    if (!textureManager->loadTexture("player", "assets/Neesa_SpriteSheet.png"))
     {
         printf("WARNING: Failed to load player sprite sheet. Falling back to simple rects pending.\n");
     }
@@ -173,6 +175,7 @@ void Game::loadLobby()
 {
     currentState = STATE_LOBBY;
     cleanCurrentLevel();
+    screenManager.clear(this); // Remove any leftover overlays
 
     // Create simple lobby platforms
     platforms.push_back({0, 550, 800, 50, {100, 100, 100, 255}, PLATFORM_DARK}); // Ground
@@ -481,10 +484,8 @@ void Game::endRun(bool victory)
     }
 
     currentRun->endRun();
-    if (!victory) {
-        previousState = currentState;  // Save state to render underneath death overlay
-    }
     currentState = victory ? STATE_RUN_COMPLETE : STATE_GAME_OVER;
+    // GameOverOverlay is pushed from update() once the death animation has finished.
 }
 
 /**
@@ -506,6 +507,39 @@ void Game::applyUpgradesToPlayer()
     {
         player->energy = player->maxEnergy;
     }
+}
+
+// ============================================================================
+// HEART LOSS TRIGGER
+// ============================================================================
+
+/**
+ * Called whenever the player loses a heart but doesn't die.
+ * Pushes HeartLossOverlay onto the screen stack so the Bomb-Jack-style
+ * animation plays before resuming normal gameplay.
+ */
+void Game::triggerHeartLoss()
+{
+    // Compute the player's current screen-space centre.
+    // In Downwell the world has a camera; in BombJack there's no offset.
+    float screenX, screenY;
+    if (currentState == STATE_DOWNWELL)
+    {
+        screenX = player->x + player->width  / 2.f;
+        screenY = (player->y - cameraY) + player->height / 2.f;
+    }
+    else
+    {
+        screenX = player->x + player->width  / 2.f;
+        screenY = player->y  + player->height / 2.f;
+    }
+
+    screenManager.push(
+        std::make_unique<HeartLossOverlay>(
+            screenX, screenY,
+            player->hearts,     // hearts AFTER the loss
+            player->maxHearts),
+        this);
 }
 
 /**
@@ -626,7 +660,14 @@ void Game::handleEvents()
             running = false;
         }
 
-        // Death state - allow restart
+        // Pass to screen stack first (e.g. GameOverOverlay handles R)
+        if (!screenManager.empty())
+        {
+            screenManager.handleEvent(event, this);
+            continue; // overlay consumed the event
+        }
+
+        // Death state - allow restart (legacy path while game-over is on screen)
         if (player->isDead && event.type == SDL_KEYDOWN)
         {
             if (event.key.keysym.sym == SDLK_r)
@@ -647,8 +688,9 @@ void Game::handleEvents()
             //     }
             // }
 
-            // RUN END: Return to lobby
-            if (currentState == STATE_RUN_COMPLETE || currentState == STATE_GAME_OVER)
+            // RUN COMPLETE: Return to lobby (SPACE)
+            // Note: STATE_GAME_OVER is handled by GameOverOverlay (R key)
+            if (currentState == STATE_RUN_COMPLETE)
             {
                 if (event.key.keysym.sym == SDLK_SPACE)
                 {
@@ -815,10 +857,24 @@ void Game::handleEvents()
  */
 void Game::update()
 {
+    const float dt = 1.0f / FPS;
+
+    // --- Screen manager update ---
+    // Always tick the overlay itself (fade-in, animation, etc.)
+    if (!screenManager.empty())
+    {
+        screenManager.update(dt, this);
+
+        // If the top overlay blocks the world update (e.g. HeartLossOverlay), stop here.
+        // If it doesn't (e.g. GameOverOverlay), fall through so death animation / gravity keep running.
+        if (!screenManager.empty() && screenManager.top() && screenManager.top()->blocksUpdate())
+            return;
+    }
+
     // Handle run intro transition
     if (currentState == STATE_RUN_INTRO)
     {
-        transitionTimer -= 1.0f / FPS;
+        transitionTimer -= dt;
         if (transitionTimer <= 0)
         {
             generateDownwellSegment();
@@ -831,13 +887,29 @@ void Game::update()
     {
         updateLobby();
     }
-    else if (currentState == STATE_DOWNWELL)
+    else if (currentState == STATE_DOWNWELL || currentState == STATE_GAME_OVER)
     {
+        // STATE_GAME_OVER: keep world ticking so death animation / gravity plays.
         updateDownwell();
+
+        // Once the death animation is far enough along, push the game-over overlay.
+        // deathTimer is incremented in player->update() -> ~0.8s anim + buffer.
+        if (currentState == STATE_GAME_OVER && screenManager.empty()
+            && player->isDead && player->deathTimer >= 1.5f)
+        {
+            screenManager.push(std::make_unique<GameOverOverlay>(), this);
+        }
     }
     else if (currentState == STATE_BOMB_JACK)
     {
         updateBombJack();
+
+        // Same deferred overlay for bomb jack death
+        if (currentState == STATE_GAME_OVER && screenManager.empty()
+            && player->isDead && player->deathTimer >= 1.5f)
+        {
+            screenManager.push(std::make_unique<GameOverOverlay>(), this);
+        }
     }
 
     // Reset jump flag when on ground
@@ -912,15 +984,6 @@ void Game::updateBombJack()
         exitSideRoom();
         return;
     }
-
-    // Death check - wait for death animation and fade to complete
-    if (player->isDead)
-    {
-        if (player->deathTimer >= 2.0f)
-        {
-            endRun(false);
-        }
-    }
 }
 
 /**
@@ -975,17 +1038,17 @@ void Game::updateDownwell()
     {
         baker->update(*player); // He ignores platforms
         
-        // Baker Collision (INSTA-KILL or heavy damage)
+        // Baker Collision (INSTA-KILL)
         if (baker->checkCollision(*player))
         {
             if (!player->isInvincible)
             {
                 player->hearts = 0; // INSTA-DEATH
                 player->isDead = true;
-                player->deathTimer = 0.0f;  // Start death animation timer
-                player->deathFadeAlpha = 0.0f;  // Start with no overlay
+                player->deathTimer = 0.0f;
+                player->deathFadeAlpha = 0.0f;
                 printf("CAUGHT BY THE BAKER!\n");
-                // Don't call endRun here - let the death timer handle it
+                endRun(false);
             }
         }
     }
@@ -1018,17 +1081,6 @@ void Game::updateDownwell()
     if (player->y > oldY)
     {
         currentRun->getStats().distanceFell += (int)(player->y - oldY);
-    }
-
-    // Death check - wait for death animation and fade to complete before ending run
-    if (player->isDead)
-    {
-        // Death animation is 0.8s, fade is 1s = 1.8s total
-        // Add a small buffer, call endRun after 2 seconds
-        if (player->deathTimer >= 2.0f)
-        {
-            endRun(false);
-        }
     }
 }
 
@@ -1372,6 +1424,16 @@ void Game::checkEnemyCollisions()
                 if (!player->isInvincible)
                 {
                     player->loseHeart();
+                    if (player->isDead)
+                    {
+                        // Fatal hit — endRun handles the game-over overlay
+                        endRun(false);
+                    }
+                    else
+                    {
+                        // Survived — show the heart-loss animation
+                        triggerHeartLoss();
+                    }
                 }
             }
         }
@@ -1392,9 +1454,14 @@ void Game::render()
     {
         renderRunIntro();
     }
-    else if (currentState == STATE_DOWNWELL)
+    else if (currentState == STATE_DOWNWELL || currentState == STATE_GAME_OVER)
     {
-        renderDownwell();
+        // Game Over overlay renders on top of the downwell world via ScreenManager.
+        // So we always just render the appropriate world state here.
+        if (currentState == STATE_GAME_OVER && previousState == STATE_BOMB_JACK)
+            renderBombJack();
+        else
+            renderDownwell();
     }
     else if (currentState == STATE_BOMB_JACK)
     {
@@ -1412,27 +1479,18 @@ void Game::render()
     {
         renderRunComplete();
     }
-    else if (currentState == STATE_GAME_OVER)
+
+    // --- Screen stack renders on top (overlays) ---
+    if (!screenManager.empty())
     {
-        // Render the game world underneath (from previousState)
-        if (previousState == STATE_DOWNWELL)
-        {
-            renderDownwell();
-        }
-        else if (previousState == STATE_BOMB_JACK)
-        {
-            renderBombJack();
-        }
-        
-        // Then render the death overlay on top
-        renderGameOver();
+        screenManager.render(renderer, this);
     }
 
     // Capture frame if recording is active (before present)
     if (isRecording)
     {
         captureFrame();
-        
+
         // Render simple "REC" indicator (top left)
         SDL_Color red = {255, 0, 0, 255};
         textManager->renderText(renderer, "REC", "small", 20, 20, red);
@@ -1573,6 +1631,14 @@ void Game::checkProjectileCollisions()
             {
                 player->loseHeart();
                 proj->active = false;
+                if (player->isDead)
+                {
+                    endRun(false);
+                }
+                else
+                {
+                    triggerHeartLoss();
+                }
             }
         }
     }
