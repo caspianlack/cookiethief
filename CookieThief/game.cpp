@@ -13,6 +13,7 @@
 #include "constants.h"
 #include "heart_loss_overlay.h"
 #include "gameover_overlay.h"
+#include "bombjack_complete_overlay.h"
 #include <cstdio>
 #include <cmath>
 #include <direct.h>   // For _mkdir on Windows
@@ -543,6 +544,16 @@ void Game::triggerHeartLoss()
 }
 
 /**
+ * Called by BombJackCompleteOverlay when its animation finishes.
+ * Increments the BJ clear counter and restores the Downwell world.
+ */
+void Game::exitBombJackRoom()
+{
+    currentRun->getStats().bombJackLevelsCleared++;
+    exitSideRoom();
+}
+
+/**
  * Clean up all dynamic objects in current level
  * Called before loading new level or exiting
  */
@@ -764,8 +775,13 @@ void Game::handleEvents()
             {
                 if (currentBombJackLevel && bombJackCookiesCollected >= currentBombJackLevel->requiredCookies)
                 {
-                    currentRun->getStats().bombJackLevelsCleared++;
-                    exitSideRoom();
+                    // Show the completion fanfare (it will call exitBombJackRoom when done)
+                    if (screenManager.empty())
+                    {
+                        screenManager.push(
+                            std::make_unique<BombJackCompleteOverlay>(bombJackCookiesCollected),
+                            this);
+                    }
                 }
             }
 
@@ -976,12 +992,14 @@ void Game::updateBombJack()
         enemy->update(*player, platforms, &projectiles);
     }
 
-    // Auto-exit when all cookies collected
+    // Auto-exit when all cookies collected — show the completion fanfare
     if (currentBombJackLevel && bombJackCookiesCollected >= currentBombJackLevel->requiredCookies)
     {
-        printf("All cookies collected! Auto-exiting Bomb Jack level...\n");
-        currentRun->getStats().bombJackLevelsCleared++;
-        exitSideRoom();
+        printf("All cookies collected! Showing BJ complete overlay...\n");
+        // Push the overlay; it will call exitBombJackRoom() when done
+        screenManager.push(
+            std::make_unique<BombJackCompleteOverlay>(bombJackCookiesCollected),
+            this);
         return;
     }
 }

@@ -175,6 +175,7 @@ public:
     // --- Public interface for Screen subclasses ---
     void loadLobby();   // moved to public so GameOverOverlay can call it
     void triggerHeartLoss(); // pushes HeartLossOverlay onto the screen stack
+    void exitBombJackRoom(); // completes BJ level and returns to Downwell
 
     // Getters for screen rendering helpers
     SDL_Renderer*  getRenderer()       const { return renderer; }
